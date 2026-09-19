@@ -39,12 +39,7 @@ export function EncabezadoPagina({
           <h1 className="titular text-[1.75rem] leading-tight font-semibold text-gris-950 sm:text-[2rem]">
             {titulo}
           </h1>
-          {/* Sobre el naranja de inicio, el gris medio no se lee: pasa a oscuro. */}
-          {descripcion && (
-            <p className="mt-1.5 text-[0.9375rem] text-gris-600 in-data-[lienzo=claude]:text-gris-900">
-              {descripcion}
-            </p>
-          )}
+          {descripcion && <p className="mt-1.5 text-[0.9375rem] text-gris-600">{descripcion}</p>}
           {etiquetas && <div className="mt-3 flex flex-wrap items-center gap-2">{etiquetas}</div>}
         </div>
         {acciones && <div className="flex shrink-0 flex-wrap items-center gap-2">{acciones}</div>}
