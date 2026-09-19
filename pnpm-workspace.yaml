@@ -1,0 +1,9 @@
+# Configuración de pnpm. Va aquí y no en el campo "pnpm" de package.json porque
+# pnpm 11 ya no lee ese campo. Sin "packages", el proyecto es un único paquete.
+
+# Paquetes a los que pnpm deja ejecutar sus scripts de instalación: son
+# dependencias de las herramientas (tsx, drizzle-kit, Next, ESLint).
+allowBuilds:
+  esbuild: true
+  sharp: true
+  unrs-resolver: true

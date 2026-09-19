@@ -1,0 +1,249 @@
+@import 'tailwindcss';
+
+/*
+ * Tokens de diseño.
+ *
+ * Los colores se declaran aquí una sola vez y las pantallas usan las clases de
+ * Tailwind que salen de ellos (bg-marca-700, text-gris-600…). Hay cuatro
+ * papeles fijos, y conviene no mezclarlos:
+ *
+ *   gris   neutros con un punto de verde salvia: fondos, textos y bordes
+ *   marca  verde bosque: las acciones (botones principales, enlaces, foco)
+ *   lima   lo seleccionado: la sección activa, el filtro elegido, la casilla marcada
+ *   coral  lo que pide atención: urgente, retrasado, borrar
+ *
+ * Cada estado del aviso tiene además su pastel (mantequilla, pervinca, lima,
+ * orquídea, menta), como los imanes de colores de un tablero de planificación.
+ * El reparto está en src/lib/dominio.ts.
+ */
+@theme {
+  --font-sans: var(--fuente-app), ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
+
+  /* Mismas luminancias que la escala slate de Tailwind, para no perder contraste. */
+  --color-gris-50: #f7f9f5;
+  --color-gris-100: #eff2ec;
+  --color-gris-200: #e2e6de;
+  --color-gris-300: #ccd3c7;
+  --color-gris-400: #969f92;
+  --color-gris-500: #6a7466;
+  --color-gris-600: #4f5a4c;
+  --color-gris-700: #3a4438;
+  --color-gris-800: #252e25;
+  --color-gris-900: #161e18;
+  --color-gris-950: #0c120d;
+
+  --color-marca-50: #eef5f0;
+  --color-marca-100: #d8eae0;
+  --color-marca-200: #b2d4c2;
+  --color-marca-300: #83b79c;
+  --color-marca-400: #52957a;
+  --color-marca-500: #2f775d;
+  --color-marca-600: #215f4b;
+  --color-marca-700: #1b4e3f;
+  --color-marca-800: #163f33;
+  --color-marca-900: #12332a;
+
+  --color-lima-50: #f8fcea;
+  --color-lima-100: #eff8d2;
+  --color-lima-200: #e2f2ae;
+  --color-lima-300: #d3eb88;
+  --color-lima-400: #bedd5c;
+  --color-lima-500: #9dc23a;
+  --color-lima-600: #789a25;
+  --color-lima-700: #56701a;
+  --color-lima-800: #435715;
+
+  --color-coral-50: #fff3ef;
+  --color-coral-100: #ffe4da;
+  --color-coral-200: #ffc8b5;
+  --color-coral-300: #ffa184;
+  --color-coral-400: #ff7a55;
+  --color-coral-500: #f2603a;
+  --color-coral-600: #d84a24;
+  --color-coral-700: #b23a1b;
+  --color-coral-800: #8e3017;
+
+  --color-mantequilla-50: #fffbea;
+  --color-mantequilla-100: #fef4c7;
+  --color-mantequilla-200: #fde99a;
+  --color-mantequilla-300: #f9db6a;
+  --color-mantequilla-500: #e2b51e;
+  --color-mantequilla-700: #8c6a05;
+  --color-mantequilla-800: #6e5306;
+
+  --color-pervinca-50: #f3f6fe;
+  --color-pervinca-100: #e4ebfd;
+  --color-pervinca-200: #ccdafa;
+  --color-pervinca-300: #aac0f4;
+  --color-pervinca-500: #5f82de;
+  --color-pervinca-700: #2f4d9d;
+  --color-pervinca-800: #253d7b;
+
+  --color-orquidea-50: #fdf4fc;
+  --color-orquidea-100: #fae4f7;
+  --color-orquidea-200: #f4ccef;
+  --color-orquidea-300: #eaabe2;
+  --color-orquidea-500: #cc62be;
+  --color-orquidea-700: #893183;
+  --color-orquidea-800: #6d2768;
+
+  --color-menta-50: #f0f8f3;
+  --color-menta-100: #def1e6;
+  --color-menta-200: #c0e3cf;
+  --color-menta-300: #95ceaf;
+  --color-menta-500: #3f9e6d;
+  --color-menta-700: #1f6546;
+  --color-menta-800: #195038;
+
+  --color-lavanda-100: #ece8fa;
+  --color-lavanda-200: #dcd5f5;
+  --color-lavanda-500: #8b7bd8;
+  --color-lavanda-700: #4f419b;
+
+  --color-lienzo: #eaeee6;
+
+  /* Jerarquía de esquinas: cuanto más grande el bloque, más redondeado. */
+  --radius-panel: 1.375rem;
+  --radius-tarjeta: 1rem;
+  --radius-control: 0.75rem;
+
+  --shadow-tarjeta: 0 1px 2px 0 rgb(22 30 24 / 0.04);
+  --shadow-flotante: 0 18px 40px -12px rgb(22 30 24 / 0.28), 0 6px 14px -8px rgb(22 30 24 / 0.18);
+}
+
+@layer base {
+  html {
+    -webkit-text-size-adjust: 100%;
+    scroll-behavior: smooth;
+  }
+
+  body {
+    background-color: var(--color-lienzo);
+    color: var(--color-gris-900);
+    font-family: var(--font-sans);
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+  }
+
+  /*
+   * 16px es el mínimo para que iOS no haga zoom al enfocar un campo.
+   * Con la app pensada para usarse a pie de obra, ese zoom es muy molesto.
+   */
+  input,
+  select,
+  textarea,
+  button {
+    font-size: 1rem;
+    font-family: inherit;
+  }
+
+  /* Foco visible y coherente en toda la aplicación. */
+  :focus-visible {
+    outline: 2px solid var(--color-marca-500);
+    outline-offset: 2px;
+  }
+
+  input[type='date']::-webkit-calendar-picker-indicator,
+  input[type='time']::-webkit-calendar-picker-indicator {
+    cursor: pointer;
+    opacity: 0.55;
+  }
+
+  ::selection {
+    background-color: var(--color-lima-300);
+    color: var(--color-gris-950);
+  }
+}
+
+@layer utilities {
+  /* Respeta la zona del gesto de inicio en los móviles sin botones. */
+  .pb-segura {
+    padding-bottom: calc(env(safe-area-inset-bottom, 0px) + 0.5rem);
+  }
+
+  .franja-inferior-segura {
+    bottom: env(safe-area-inset-bottom, 0px);
+  }
+
+  /* Oculta la barra de desplazamiento manteniendo el desplazamiento táctil. */
+  .sin-barra::-webkit-scrollbar {
+    display: none;
+  }
+
+  .sin-barra {
+    scrollbar-width: none;
+  }
+
+  /*
+   * Cifras grandes (contadores, horas): la misma letra, un poco estrecha.
+   * Instrument Sans tiene eje de anchura y así los números pesan como los de
+   * un marcador sin cambiar de familia.
+   */
+  .cifra {
+    font-variation-settings: 'wdth' 84;
+    letter-spacing: -0.025em;
+  }
+
+  /* Títulos: algo más apretados que el texto corrido. */
+  .titular {
+    letter-spacing: -0.022em;
+  }
+}
+
+/* ---------------------------------------------------- Gráfico de horas */
+
+/*
+ * Las barras crecen desde la base una sola vez al abrir el panel: es el único
+ * movimiento que la aplicación hace sin que nadie lo pida.
+ */
+@keyframes crecer-barra {
+  from {
+    transform: scaleY(0);
+  }
+}
+
+.barra-grafico {
+  transform-origin: bottom;
+  animation: crecer-barra 700ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .barra-grafico {
+    animation: none;
+  }
+
+  html {
+    scroll-behavior: auto;
+  }
+}
+
+/* --------------------------------------------------------------- Impresión */
+
+@media print {
+  .no-imprimir {
+    display: none !important;
+  }
+
+  body {
+    background: #fff;
+    color: #000;
+  }
+
+  .hoja-impresa {
+    max-width: none;
+    margin: 0;
+    padding: 0;
+    box-shadow: none;
+    border: 0;
+  }
+
+  /* Que no se corte un parte de trabajo por la mitad entre dos páginas. */
+  .bloque-entero {
+    break-inside: avoid;
+  }
+
+  @page {
+    size: A4;
+    margin: 14mm;
+  }
+}

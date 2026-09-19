@@ -1,0 +1,52 @@
+{
+  "name": "app-avisos-partes",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Gestión de avisos y partes de trabajo para una empresa de mantenimiento de locales",
+  "packageManager": "pnpm@10.30.3",
+  "engines": {
+    "node": ">=22"
+  },
+  "scripts": {
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
+    "lint": "eslint .",
+    "typecheck": "tsc --noEmit",
+    "db:reset": "tsx scripts/seed.ts",
+    "db:seed": "tsx scripts/seed.ts",
+    "db:generar": "drizzle-kit generate",
+    "usuarios:admin": "tsx scripts/crear-admin.ts",
+    "test": "node --import tsx --experimental-test-module-mocks --disable-warning=ExperimentalWarning --test \"tests/**/*.test.ts\""
+  },
+  "dependencies": {
+    "@dnd-kit/core": "^6.3.1",
+    "@supabase/ssr": "0.12.7",
+    "@supabase/supabase-js": "2.116.0",
+    "clsx": "^2.1.1",
+    "date-fns": "^4.4.0",
+    "drizzle-orm": "^0.45.2",
+    "lucide-react": "^1.47.0",
+    "next": "16.3.5",
+    "postgres": "^3.4.9",
+    "react": "19.3.0",
+    "react-dom": "19.3.0",
+    "server-only": "0.0.1",
+    "tailwind-merge": "^3.6.0",
+    "zod": "^4.6.5"
+  },
+  "devDependencies": {
+    "@electric-sql/pglite": "^0.5.8",
+    "@tailwindcss/postcss": "^4.3.3",
+    "@types/node": "^24.0.0",
+    "@types/react": "^19.2.0",
+    "@types/react-dom": "^19.2.0",
+    "drizzle-kit": "^0.31.10",
+    "eslint": "^9.39.0",
+    "eslint-config-next": "16.3.5",
+    "postcss": "^8.5.0",
+    "tailwindcss": "^4.3.3",
+    "tsx": "^4.23.7",
+    "typescript": "^5.9.0"
+  }
+}

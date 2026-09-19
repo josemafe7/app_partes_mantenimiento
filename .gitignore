@@ -1,0 +1,17 @@
+node_modules/
+.next/
+out/
+build/
+next-env.d.ts
+*.tsbuildinfo
+
+.env
+.env.local
+.env*.local
+.DS_Store
+
+*.log
+.claude/settings.local.json
+
+# Enlaces (junctions) a .agents/skills, que es la copia que se versiona
+.claude/skills/
