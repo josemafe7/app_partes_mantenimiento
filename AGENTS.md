@@ -15,6 +15,16 @@ Todo el proyecto está en español: la interfaz, los mensajes de validación, lo
 los identificadores (`avisos`, `tecnicoId`, `cambiarEstado`, `listarAvisos`…). El código nuevo sigue
 esa convención, y las respuestas al usuario van siempre en español.
 
+## Git
+
+El repositorio está en GitHub (`origin`: https://github.com/josemafe7/app_partes_mantenimiento).
+
+- **Todo va en la rama `main`.** No se crean otras ramas (ni worktrees) si el usuario no lo pide.
+- **Nada se sube sin que el usuario lo diga**: ni `git add`, ni `git commit`, ni `git push`, ni
+  ninguna otra forma de llevar cambios al repositorio. Los cambios se quedan en la carpeta hasta
+  que el usuario pida expresamente guardarlos o subirlos. Que haya pedido un commit una vez no
+  vale para los siguientes.
+
 ## Comandos
 
 ```bash
