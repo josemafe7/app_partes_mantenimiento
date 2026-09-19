@@ -11,7 +11,3 @@ next-env.d.ts
 .DS_Store
 
 *.log
-.claude/settings.local.json
-
-# Enlaces (junctions) a .agents/skills, que es la copia que se versiona
-.claude/skills/
