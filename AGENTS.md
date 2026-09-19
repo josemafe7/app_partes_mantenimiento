@@ -170,6 +170,13 @@ Actions de `src/acciones/` mediante `useActionState`. El layout raíz fija
   servidor a mitad de una consulta con parámetros. La página se queda cargando para siempre, sin
   ningún error, y en Postgres las sesiones aparecen `active` esperando `ClientRead`.
   `src/db/cliente.ts` se niega a arrancar con el 6543 para que no vuelva a pasar.
+- **Las 15 conexiones del pooler son para todos**: en modo sesión, el proyecto de Supabase admite 15
+  conexiones a la vez entre la web publicada en Vercel (cada instancia abre las suyas y se congela
+  entre visitas sin soltarlas) y cualquier `pnpm dev` abierto. Por eso `postgres()` va con `max: 3`
+  e `idle_timeout: 10`, y no conviene subirlos. Si se agotan, las consultas fallan con
+  `(EMAXCONNSESSION) max clients reached in session mode` y las páginas enseñan «No se ha podido
+  cargar esta pantalla». Para ver quién las tiene:
+  `select state, now() - state_change from pg_stat_activity where usename = 'app_avisos'`.
 - **Subconsultas correlacionadas en Drizzle**: en esas subconsultas los nombres de tabla y columna
   van escritos a mano (`avisos.tecnico_id = tecnicos.id`) y los valores sí se interpolan. Con
   columnas interpoladas la correlación depende de cómo las cualifique Drizzle, y si se rompe los

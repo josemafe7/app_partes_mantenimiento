@@ -35,9 +35,16 @@ function abrirConexion() {
   }
 
   const cliente = postgres(url, {
-    max: 10,
-    // Suelta las conexiones que llevan un rato sin usarse.
-    idle_timeout: 20,
+    // El pooler en modo sesión reparte 15 conexiones entre TODO lo que use la
+    // aplicación a la vez: la web publicada en Vercel (cada instancia abre las
+    // suyas y se congela entre visitas sin soltarlas) y cualquier `pnpm dev`
+    // abierto. Con 10 por proceso, el primero se quedaba con casi todas y el
+    // siguiente recibía «max clients reached in session mode» y las páginas
+    // fallaban. Con 3 caben varios a la vez y sobra margen.
+    max: 3,
+    // Suelta las conexiones que llevan un rato sin usarse, para devolverlas
+    // cuanto antes al pooler.
+    idle_timeout: 10,
     connect_timeout: 15,
   })
   return drizzle(cliente, { schema: esquema })
