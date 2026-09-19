@@ -211,6 +211,10 @@ nonce, `frame-ancestors 'none'`, `form-action 'self'`), y en `next.config.ts` `X
 - **Conexión**: `DATABASE_URL` en `.env.local` (plantilla en `.env.example`), por el pooler
   Supavisor en **modo sesión** (puerto 5432). El modo transacción (6543) no sirve con postgres.js:
   las consultas se quedan colgadas, y `src/db/cliente.ts` se niega a arrancar con él.
+  Ese modo reserva una de las **15 conexiones** del proyecto por cada cliente conectado, y se las
+  reparten la web publicada en Vercel y cualquier `pnpm dev` abierto, así que cada proceso abre
+  como mucho **2** (`max: 2`, `idle_timeout: 10`). Con 10 por proceso se agotaron el 20-09-2026,
+  nada más publicar en Vercel, y todas las pantallas con datos fallaron.
 - **Rol `app_avisos`**: la aplicación entra con un rol propio que solo lee y escribe filas de sus
   tablas, sin poder crear, modificar ni borrar tablas. En `perfiles` no puede borrar, y en
   `intentos_acceso` no puede modificar. Su contraseña no está en las migraciones: se generó en

@@ -166,17 +166,24 @@ Actions de `src/acciones/` mediante `useActionState`. El layout raíz fija
   Ese servidor también bloquea en Windows mover carpetas de `src/app`: se copian y se borran.
 
 - **Pooler de Supabase en modo sesión (puerto 5432), nunca en modo transacción (6543)**: postgres.js
-  encadena consultas por la misma conexión y, en modo transacción, el pooler suelta la conexión del
-  servidor a mitad de una consulta con parámetros. La página se queda cargando para siempre, sin
-  ningún error, y en Postgres las sesiones aparecen `active` esperando `ClientRead`.
-  `src/db/cliente.ts` se niega a arrancar con el 6543 para que no vuelva a pasar.
-- **Las 15 conexiones del pooler son para todos**: en modo sesión, el proyecto de Supabase admite 15
-  conexiones a la vez entre la web publicada en Vercel (cada instancia abre las suyas y se congela
-  entre visitas sin soltarlas) y cualquier `pnpm dev` abierto. Por eso `postgres()` va con `max: 3`
-  e `idle_timeout: 10`, y no conviene subirlos. Si se agotan, las consultas fallan con
+  manda varias consultas seguidas por la misma conexión sin esperar a la anterior, y en modo
+  transacción cada una puede acabar en una conexión distinta del servidor. La página se queda
+  cargando para siempre, sin ningún error, y en Postgres las sesiones aparecen `active` esperando
+  `ClientRead`. `src/db/cliente.ts` se niega a arrancar con el 6543 para que no vuelva a pasar.
+  Comprobado otra vez el 20-09-2026 buscando una salida para el serverless: con `prepare: false`
+  una consulta suelta va bien, pero en cuanto dos comparten conexión (lo normal: la pantalla de
+  inicio lanza catorce a la vez) se cuelga, y subir `max` por encima de la concurrencia solo
+  esconde la trampa hasta que entran dos personas a la vez. Con más conexiones que consultas
+  simultáneas pasó cinco rondas; con `max: 3`, se colgó en la segunda.
+- **Las 15 conexiones del pooler son para todos**: el proyecto de Supabase admite 15 conexiones a la
+  vez entre la web publicada en Vercel (cada instancia abre las suyas y se congela entre visitas sin
+  soltarlas) y cualquier `pnpm dev` abierto. Por eso `postgres()` va con `max: 2` e
+  `idle_timeout: 10`, y no conviene subirlos: con `max: 10` se agotaron el 20-09-2026 en cuanto
+  hubo web publicada y servidor local a la vez. Al agotarse, las consultas fallan con
   `(EMAXCONNSESSION) max clients reached in session mode` y las páginas enseñan «No se ha podido
   cargar esta pantalla». Para ver quién las tiene:
-  `select state, now() - state_change from pg_stat_activity where usename = 'app_avisos'`.
+  `select state, now() - state_change from pg_stat_activity where usename = 'app_avisos'`; se
+  sueltan con `pg_terminate_backend` sobre las `idle` o reiniciando el proyecto en Supabase.
 - **Subconsultas correlacionadas en Drizzle**: en esas subconsultas los nombres de tabla y columna
   van escritos a mano (`avisos.tecnico_id = tecnicos.id`) y los valores sí se interpolan. Con
   columnas interpoladas la correlación depende de cómo las cualifique Drizzle, y si se rompe los
