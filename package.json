@@ -17,6 +17,9 @@
     "db:seed": "tsx scripts/seed.ts",
     "db:generar": "drizzle-kit generate",
     "usuarios:admin": "tsx scripts/crear-admin.ts",
+    "usuarios:prueba": "tsx scripts/usuarios-prueba.ts",
+    "datos:copiar": "tsx scripts/copiar-datos.ts",
+    "entornos": "tsx scripts/comprobar-entornos.ts",
     "test": "node --import tsx --experimental-test-module-mocks --disable-warning=ExperimentalWarning --test \"tests/**/*.test.ts\""
   },
   "dependencies": {

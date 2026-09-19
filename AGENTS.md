@@ -34,27 +34,56 @@ pnpm lint
 pnpm test                # todas (node:test + tsx, con --experimental-test-module-mocks)
 node --import tsx --experimental-test-module-mocks --test tests/acciones-avisos.test.ts   # un archivo
 node --import tsx --experimental-test-module-mocks --test --test-name-pattern="retrasados" "tests/**/*.test.ts"  # por nombre
-pnpm db:reset            # borra la base de Supabase y carga los datos de ejemplo (alias: db:seed)
+pnpm db:reset            # borra la base de DESARROLLO y carga los datos de ejemplo (alias: db:seed)
 pnpm db:generar          # nueva migración en supabase/migrations/ tras tocar src/db/esquema.ts
+pnpm entornos            # a qué proyecto apunta cada entorno y si conecta (solo lectura)
+pnpm datos:copiar        # copia los datos de producción a desarrollo (--sin-escribir: solo respaldo)
+pnpm usuarios:prueba     # un usuario de cada rol en desarrollo (--renovar: contraseñas nuevas)
 pnpm usuarios:admin <email> "<nombre>"   # crea un administrador con contraseña temporal
 ```
 
-- La base de datos es PostgreSQL en Supabase (proyecto «App de Partes», ref
-  `qiydpgnryyypnkhuqzyv`, región eu-central-1). La conexión sale de `DATABASE_URL` en `.env.local`
-  (plantilla en `.env.example`). Next la carga solo; los scripts la cargan con `scripts/entorno.ts`.
+**Todo lo de arriba va contra desarrollo.** Para ir a producción hay que escribirlo:
+`--entorno=produccion` (o `ENTORNO=produccion`). Ver «Los dos entornos», más abajo.
+
+- La base de datos es PostgreSQL en Supabase, en dos proyectos de la región eu-central-1: «App de
+  Partes» (ref `qiydpgnryyypnkhuqzyv`) para **producción** y «App de Partes - Desarrollo» (ref
+  `ujftpokeijrivicdwpnx`) para **desarrollo**. La conexión sale de `DATABASE_URL` en `.env.local`
+  (desarrollo) o `.env.produccion.local` (producción); la plantilla es `.env.example`. Next carga
+  `.env.local` solo; los scripts eligen archivo con `scripts/entorno.ts`.
   El inicio de sesión usa además `SUPABASE_URL`, `SUPABASE_PUBLISHABLE_KEY` y `SUPABASE_SECRET_KEY`
   (esta última es secreta: no se lee, no se imprime y no se copia a ningún sitio).
   La lectura de mensajes con IA usa `OPENROUTER_API_KEY`, también secreta y con el mismo trato, y
   `OPENROUTER_MODELO` (opcional; por defecto `google/gemini-3-flash-preview`). Sin la clave, el
   recuadro de «Nuevo aviso» responde que falta y el resto funciona igual.
-- `db:reset` trabaja sobre esa base, la de verdad: se lleva por delante lo que haya.
+- `db:reset` se lleva por delante lo que haya en la base de desarrollo, y **se niega a ejecutarse
+  contra producción** (hacen falta `--entorno=produccion` *y* `--si-borrar-produccion`).
 - `pnpm test` no toca Supabase ni OpenRouter: `tests/consultas.test.ts` y `tests/acciones-*.test.ts`
   montan un Postgres en memoria (PGlite) con las mismas migraciones de `supabase/migrations/`, y
   Supabase Auth y `fetch` se sustituyen (ver «Pruebas de las acciones» en las trampas).
 - Los datos de ejemplo (`src/db/semilla.ts`) ponen las fechas respecto al día en que se cargan:
   unos días después aparecen avisos «retrasados» que antes no lo eran.
 
+### Los dos entornos
+
+`scripts/entornos.ts` es quien decide a qué proyecto va cada cosa, y no tiene efectos: se prueba en
+`tests/entornos.test.ts`. Lo que hay que saber para no romperlo:
+
+- **Por defecto, desarrollo.** `entornoPedido()` devuelve `desarrollo` salvo que se pase
+  `--entorno=produccion` o `ENTORNO=produccion`. `scripts/entorno.ts` carga el archivo que toque y
+  exporta `ENTORNO` y `VARIABLES`; se importa el primero, antes que `src/db/cliente`.
+- **Un script nuevo que escriba en la base empieza con `exigirDesarrollo(VARIABLES, '<comando>')`**,
+  salvo que su razón de ser sea tocar producción. La guardia mira el ref del proyecto en
+  `DATABASE_URL` *y* en `SUPABASE_URL`, así que no se esquiva cambiando solo uno.
+- **Los argumentos se leen con `argumentosSueltos()`**, no con `process.argv.slice(2)`: si no, un
+  `--entorno=produccion` se cuela como si fuera el email o el nombre.
+- Los scripts que hablan con dos proyectos a la vez (`copiar-datos.ts`) no usan `bd` de
+  `src/db/cliente`, que está atado a un solo `DATABASE_URL`: abren sus conexiones con `postgres()`.
+- `.env.produccion.local` no se versiona (`.gitignore` lleva `.env*.local`), y `respaldos/` tampoco.
+
 ### Cambiar el esquema
+
+Las migraciones son lo que mantiene iguales los dos proyectos, así que **una migración no está
+terminada hasta que está aplicada en los dos**, primero en desarrollo.
 
 1. Tocar `src/db/esquema.ts` y generar la migración con `pnpm db:generar --name <nombre>`.
 2. Si la migración crea una tabla, añadirle a mano lo de `…_acceso_app.sql` (o `…_acceso_usuarios.sql`):
@@ -62,12 +91,55 @@ pnpm usuarios:admin <email> "<nombre>"   # crea un administrador con contraseña
    y su política. Drizzle no genera permisos (`pnpm db:generar --custom --name <nombre>` crea una
    migración vacía para escribirlos). Con el login, cada usuario tiene un token `authenticated`:
    una tabla que se le abra a ese rol queda al alcance de cualquier usuario por la API de datos.
-3. Aplicarla en Supabase con el conector (`apply_migration`, mismo nombre) o `supabase db push`.
-   El rol de la app no puede cambiar el esquema, así que nunca se aplica desde la aplicación.
+3. Aplicarla **en desarrollo** (`ujftpokeijrivicdwpnx`) con el conector (`apply_migration`, mismo
+   nombre) o `supabase db push`. El rol de la app no puede cambiar el esquema, así que nunca se
+   aplica desde la aplicación.
 4. Si se aplicó con el conector, Supabase le da su propia versión: renombrar el archivo (y su
    `tag` en `meta/_journal.json` y su instantánea en `meta/`) para que coincida con
    `list_migrations`. Después, `pnpm db:generar` debe responder «No schema changes».
-5. Pasar el asesor de seguridad (`get_advisors`) y `pnpm test`.
+5. Probarla en local (`pnpm dev`, `pnpm test`) y pasar el asesor de seguridad (`get_advisors`).
+6. Aplicarla **en producción** (`qiydpgnryyypnkhuqzyv`), con el mismo nombre. Si el conector le da
+   otra versión, cuadrarla con la del repo:
+   `update supabase_migrations.schema_migrations set version = '<la del archivo>' where name = '<nombre>'`.
+7. Comprobar que los dos proyectos han quedado iguales: `list_migrations` en los dos, y la huella
+   de la estructura (la consulta está justo debajo).
+
+### Comprobar que los dos proyectos son iguales
+
+Un `md5` de toda la estructura: columnas con su tipo y su valor por defecto, índices, restricciones,
+políticas, RLS y permisos. Si sale lo mismo en los dos proyectos, están iguales; si no, hay que
+mirar qué línea sobra o falta quitando el `md5`. El 20-09-2026, recién creado el de desarrollo:
+`33222d7a63e744eb0d32d63e0024e9c4`, 194 elementos.
+
+```sql
+select md5(string_agg(linea, chr(10) order by linea)) as huella, count(*) as elementos from (
+  select format('columna %s.%s %s %s %s', table_name, column_name, data_type, is_nullable,
+                coalesce(column_default, '-')) as linea
+    from information_schema.columns where table_schema = 'public'
+  union all
+  select format('indice %s', indexdef) from pg_indexes where schemaname = 'public'
+  union all
+  select format('politica %s %s %s %s', tablename, policyname, roles::text, cmd)
+    from pg_policies where schemaname = 'public'
+  union all
+  select format('permiso %s %s %s', table_name, grantee, privilege_type)
+    from information_schema.role_table_grants
+    where table_schema = 'public' and grantee in ('app_avisos', 'anon', 'authenticated')
+  union all
+  select format('restriccion %s %s', conname, pg_get_constraintdef(c.oid))
+    from pg_constraint c join pg_class t on t.oid = c.conrelid join pg_namespace n on n.oid = t.relnamespace
+    where n.nspname = 'public'
+  union all
+  select format('rls %s %s', relname, relrowsecurity::text)
+    from pg_class c join pg_namespace n on n.oid = c.relnamespace
+    where n.nspname = 'public' and c.relkind = 'r'
+) t;
+```
+
+Lo que esta huella **no** ve, porque no está en las migraciones y hay que repetir a mano en cada
+proyecto: la contraseña de `app_avisos` (`alter role app_avisos with login password '…'`), la
+configuración de Auth (registro público apagado, contraseñas de 12 caracteres con los cuatro tipos)
+y `SUPABASE_SECRET_KEY`, que es distinta en cada uno.
 
 ## Arquitectura
 
@@ -165,6 +237,24 @@ Actions de `src/acciones/` mediante `useActionState`. El layout raíz fija
   los cambios en caliente); `.claude/launch.json` lleva `autoPort` para cuando el 3000 esté libre.
   Ese servidor también bloquea en Windows mover carpetas de `src/app`: se copian y se borran.
 
+- **Cambiar de entorno pide reiniciar `pnpm dev`**: Next detecta el cambio y escribe «Reload env:
+  .env.local», pero `src/db/cliente.ts` guarda el pool en `globalThis.__bdAvisos` para que el
+  recargado en caliente no abra uno nuevo en cada cambio, y ese pool sobrevive a la recarga con la
+  conexión vieja. O sea, que tras apuntar `.env.local` a otro proyecto el servidor puede seguir
+  leyendo del anterior sin decir nada. Se reinicia y ya. `pnpm entornos` dice a qué proyecto apunta
+  cada archivo, pero no qué tiene abierto un servidor que ya estaba corriendo.
+- **`jsonb` como parámetro con postgres.js**: si Postgres deduce que el parámetro es `jsonb` (por
+  un `$1::jsonb`), postgres.js aplica su serializador de JSON y **vuelve a codificar** la cadena que
+  se le pasa, así que al servidor le llega un texto JSON en vez del array y salta «cannot call
+  jsonb_populate_recordset on a non-array». En `copiar-datos.ts` va `$1::text::jsonb`, que fija el
+  tipo del parámetro a texto y deja la cadena pasar tal cual. La otra forma buena es pasar el
+  objeto de JavaScript con `sql.json(...)`; la que no funciona es cadena + `::jsonb`.
+- **`.env.local` es desarrollo, y tiene que seguir siéndolo**: es el archivo que lee Next con
+  `pnpm dev` y el destino por defecto de todos los scripts. Apuntarlo a producción «un momento para
+  ver una cosa» deja armado el siguiente `pnpm db:reset`, que borra las tablas antes de sembrarlas.
+  Para mirar producción está `--entorno=produccion`, que usa `.env.produccion.local` y no cambia
+  nada de sitio. La guardia (`exigirDesarrollo`) cubre `db:reset`, `usuarios:prueba` y el destino de
+  `datos:copiar`, pero **no** `pnpm dev`: ahí no hay más red que esta.
 - **Pooler de Supabase en modo sesión (puerto 5432), nunca en modo transacción (6543)**: postgres.js
   manda varias consultas seguidas por la misma conexión sin esperar a la anterior, y en modo
   transacción cada una puede acabar en una conexión distinta del servidor. La página se queda
@@ -175,9 +265,10 @@ Actions de `src/acciones/` mediante `useActionState`. El layout raíz fija
   inicio lanza catorce a la vez) se cuelga, y subir `max` por encima de la concurrencia solo
   esconde la trampa hasta que entran dos personas a la vez. Con más conexiones que consultas
   simultáneas pasó cinco rondas; con `max: 3`, se colgó en la segunda.
-- **Las 15 conexiones del pooler son para todos**: el proyecto de Supabase admite 15 conexiones a la
-  vez entre la web publicada en Vercel (cada instancia abre las suyas y se congela entre visitas sin
-  soltarlas) y cualquier `pnpm dev` abierto. Por eso `postgres()` va con `max: 2` e
+- **Las 15 conexiones del pooler son para todos**: cada proyecto de Supabase admite 15 conexiones a
+  la vez. Las de producción se las reparten la web publicada en Vercel (cada instancia abre las
+  suyas y se congela entre visitas sin soltarlas) y cualquier proceso que apunte ahí; desde que hay
+  proyecto de desarrollo, el `pnpm dev` de local ya no se las quita, porque gasta las suyas. Por eso `postgres()` va con `max: 2` e
   `idle_timeout: 10`, y no conviene subirlos: con `max: 10` se agotaron el 20-09-2026 en cuanto
   hubo web publicada y servidor local a la vez. Al agotarse, las consultas fallan con
   `(EMAXCONNSESSION) max clients reached in session mode` y las páginas enseñan «No se ha podido

@@ -19,9 +19,13 @@ Hace falta **Node 22** o posterior y **pnpm**.
 pnpm install
 ```
 
-Los datos y los usuarios viven en **Supabase** (PostgreSQL y Supabase Auth), en el proyecto «App
-de Partes». La aplicación lee sus claves de `.env.local`, que no se sube al repositorio. Si no lo
-tienes, copia `.env.example` como `.env.local` y rellena las dos claves secretas:
+Los datos y los usuarios viven en **Supabase** (PostgreSQL y Supabase Auth). Hay **dos proyectos**:
+«App de Partes» para producción y «App de Partes - Desarrollo» para trabajar en local (ver
+[Los dos entornos](#los-dos-entornos)). En local se trabaja siempre contra el de desarrollo.
+
+La aplicación lee sus claves de `.env.local`, que no se sube al repositorio. Si no lo tienes, copia
+`.env.example` como `.env.local` (ya trae los valores del proyecto de desarrollo) y rellena las dos
+claves secretas:
 
 - `DATABASE_URL`: la contraseña del rol `app_avisos` (más abajo se explica cómo cambiarla).
 - `SUPABASE_SECRET_KEY`: la clave secreta del proyecto. Se crea en Supabase, en **Project Settings →
@@ -37,10 +41,21 @@ pnpm dev
 
 Y abrir <http://localhost:3000>. Sin sesión, la aplicación lleva al login.
 
-**El primer administrador** se crea desde la terminal (los demás usuarios, desde la aplicación):
+**Para entrar en desarrollo** hay tres usuarios de prueba, uno por rol:
 
 ```bash
-pnpm usuarios:admin tu@email.com "Nombre y apellidos"
+pnpm usuarios:prueba
+```
+
+Escribe en la terminal las contraseñas de `admin@example.com`, `oficina@example.com` y
+`tecnico@example.com`, una sola vez. Se puede repetir después de `pnpm db:reset` o de
+`pnpm datos:copiar`, y con `--renovar` da contraseñas nuevas si se han perdido.
+
+**El primer administrador de producción** se crea desde la terminal (los demás usuarios, desde la
+aplicación):
+
+```bash
+pnpm usuarios:admin --entorno=produccion tu@email.com "Nombre y apellidos"
 ```
 
 Escribe en la terminal una contraseña temporal. Al entrar con ella, la aplicación pide elegir una
@@ -56,7 +71,16 @@ Para volver a dejarlo todo como al principio, con las fechas recalculadas respec
 pnpm db:reset
 ```
 
-Ojo: trabaja sobre la base de Supabase, así que borra todo lo que se haya creado.
+Trabaja sobre la base de **desarrollo** y borra todo lo que hubiera en ella. Contra producción se
+niega a ejecutarse.
+
+Y para trabajar con lo que hay en la aplicación de verdad, en lugar de con los datos de ejemplo:
+
+```bash
+pnpm datos:copiar
+```
+
+Copia los datos de producción a desarrollo (y deja antes un respaldo en `respaldos/`).
 
 ---
 
@@ -189,18 +213,87 @@ tocar:
 | --- | --- |
 | `pnpm dev` | Arranca la aplicación en <http://localhost:3000> |
 | `pnpm build` · `pnpm start` | Compila y arranca la versión de producción |
-| `pnpm db:reset` | Vacía la base de Supabase y carga los datos de ejemplo (`db:seed` hace lo mismo) |
+| `pnpm db:reset` | Vacía la base de **desarrollo** y carga los datos de ejemplo (`db:seed` hace lo mismo) |
 | `pnpm db:generar` | Genera la migración SQL en `supabase/migrations/` tras cambiar `src/db/esquema.ts` |
+| `pnpm entornos` | Dice a qué proyecto apunta cada entorno y si conecta (no escribe nada) |
+| `pnpm datos:copiar` | Copia los datos de producción a desarrollo, con respaldo previo en `respaldos/` |
+| `pnpm usuarios:prueba` | Crea en desarrollo un usuario de cada rol (`--renovar` cambia sus contraseñas) |
 | `pnpm usuarios:admin <email> "<nombre>"` | Crea un administrador con una contraseña temporal (el primero, o si no queda ninguno) |
 | `pnpm test` | Pruebas de fechas, dominio, filtros, permisos, contraseñas, validaciones, consultas y acciones de servidor (estas dos, sobre un Postgres en memoria) y la lectura con IA (sin llamar a la API) |
 | `pnpm typecheck` · `pnpm lint` | Tipos y estilo |
 
 ---
 
+## Los dos entornos
+
+Hay dos proyectos de Supabase, iguales por dentro y con datos distintos:
+
+| | Producción | Desarrollo |
+| --- | --- | --- |
+| Proyecto | «App de Partes» (`qiydpgnryyypnkhuqzyv`) | «App de Partes - Desarrollo» (`ujftpokeijrivicdwpnx`) |
+| Quién lo usa | La web publicada en Vercel | `pnpm dev` y los scripts de la terminal |
+| Archivo de claves | `.env.produccion.local` | `.env.local` |
+| Datos | Los de verdad | Los de ejemplo, o una copia de producción |
+
+**Lo normal va a desarrollo.** `pnpm dev`, `pnpm db:reset`, `pnpm usuarios:prueba` y el destino de
+`pnpm datos:copiar` trabajan sobre `.env.local` sin que haya que decir nada. Para ir a producción
+hay que escribirlo:
+
+```bash
+pnpm usuarios:admin --entorno=produccion tu@email.com "Nombre y apellidos"
+```
+
+Y hay dos barreras para que un descuido no se lleve por delante los datos de verdad:
+
+- **`pnpm db:reset` se niega a tocar producción.** Vacía las tablas antes de sembrarlas, así que ni
+  con `--entorno=produccion` basta: hace falta además `--si-borrar-produccion`, que nadie escribe
+  sin querer. La comprobación está en `scripts/entornos.ts` y se prueba en `tests/entornos.test.ts`.
+- **La base y Supabase Auth tienen que ser del mismo proyecto.** Si un archivo mezcla el
+  `DATABASE_URL` de uno con el `SUPABASE_URL` de otro, los scripts se paran: si no, la aplicación
+  leería los datos de un sitio y crearía los usuarios en el otro.
+
+Para saber en cualquier momento sobre qué base estás trabajando, que con dos proyectos iguales por
+dentro no se ve a simple vista:
+
+```bash
+pnpm entornos
+```
+
+Ojo con una cosa: si cambias a qué proyecto apunta `.env.local` con `pnpm dev` abierto, **hay que
+reiniciarlo**. Next recarga las variables, pero la conexión a la base se guarda en `globalThis` y
+sigue siendo la de antes.
+
+**Los dos proyectos se mantienen iguales por las migraciones**, no clonando la base: el de
+desarrollo se levantó aplicando las mismas cuatro de `supabase/migrations/`, con sus mismos nombres
+y versiones. Cada migración nueva se aplica **primero en desarrollo** y, cuando funciona, en
+producción.
+
+Lo que **no** es igual en los dos y hay que repetir a mano al crear un proyecto:
+
+1. La contraseña del rol `app_avisos` (`alter role app_avisos with login password '…'`), que no
+   está en ninguna migración.
+2. La configuración de Auth: registro público desactivado y contraseñas de 12 caracteres con los
+   cuatro tipos de carácter.
+3. `SUPABASE_SECRET_KEY`, que es distinta en cada proyecto.
+
+**Copias de seguridad**: en el plan free de Supabase no hay copias automáticas. `pnpm datos:copiar`
+guarda en `respaldos/` (que no se versiona) todo lo que lee de producción antes de escribir, así que
+es también la forma de sacar una copia del día:
+
+```bash
+pnpm datos:copiar --sin-escribir
+```
+
+**Pendiente**: en Vercel, las variables están puestas a la vez en `production` y en `preview`, así
+que un despliegue de vista previa escribiría en la base de producción. Mientras todo vaya por `main`
+no llega a pasar; el día que haya ramas, conviene apuntar `preview` a desarrollo.
+
+---
+
 ## La base de datos en Supabase
 
-- **La conexión** va en `DATABASE_URL` (`.env.local`). Es la del pooler de Supabase en **modo
-  sesión, puerto 5432**. No sirve el modo transacción (6543): con el driver que usa la aplicación
+- **La conexión** va en `DATABASE_URL` (en `.env.local` para desarrollo y en `.env.produccion.local`
+  para producción). Es la del pooler de Supabase en **modo sesión, puerto 5432**. No sirve el modo transacción (6543): con el driver que usa la aplicación
   las páginas se quedan cargando, y la aplicación se niega a arrancar si lo detecta.
 - **La aplicación entra con su propio rol, `app_avisos`**, que solo puede leer y escribir filas de
   sus tablas. No puede crear ni borrar tablas, ni ver nada más del proyecto.
@@ -214,17 +307,20 @@ tocar:
   (Authentication → Sign In / Providers → «Allow new users to sign up» apagado) y las contraseñas
   con al menos 12 caracteres y los cuatro tipos de carácter.
 - **Los cambios de esquema** se hacen con una migración: se toca `src/db/esquema.ts`, se genera el SQL
-  con `pnpm db:generar` y se aplica en Supabase (con el conector de Supabase de Claude, con
-  `supabase db push` o pegándolo en el editor SQL). Los detalles están en `AGENTS.md`.
+  con `pnpm db:generar` y se aplica **en los dos proyectos**, primero en desarrollo (con el conector
+  de Supabase de Claude, con `supabase db push` o pegándolo en el editor SQL). Los detalles están en
+  `AGENTS.md`.
 
-**Cambiar la contraseña de `app_avisos`**: en el editor SQL de Supabase,
+**Poner o cambiar la contraseña de `app_avisos`**: en el editor SQL del proyecto que toque (cada uno
+tiene la suya),
 
 ```sql
-alter role app_avisos with password 'la-nueva-contraseña';
+alter role app_avisos with login password 'la-nueva-contraseña';
 ```
 
-y poner la misma en `DATABASE_URL`. Si tiene símbolos, en la cadena de conexión van codificados
-(`%40` para `@`, etc.).
+y poner la misma en el `DATABASE_URL` de ese entorno. Si tiene símbolos, en la cadena de conexión
+van codificados (`%40` para `@`, etc.). El `login` hace falta porque la migración crea el rol sin
+él: mientras no se ejecute esto, el pooler responde «user not found in the database».
 
 ---
 

@@ -8,9 +8,14 @@
  * Genera una contraseña temporal y la escribe en la terminal, una sola vez: al
  * entrar con ella, la aplicación obliga a elegir una nueva. Necesita
  * DATABASE_URL, SUPABASE_URL y SUPABASE_SECRET_KEY en `.env.local`.
+ *
+ * Trabaja contra desarrollo salvo que se diga otra cosa. Para dar de alta a un
+ * administrador de la aplicación de verdad:
+ *
+ *   pnpm usuarios:admin --entorno=produccion tu@email.com "Nombre y apellidos"
  */
 
-import './entorno'
+import { VARIABLES } from './entorno'
 
 import { createClient } from '@supabase/supabase-js'
 import { eq } from 'drizzle-orm'
@@ -18,9 +23,10 @@ import { eq } from 'drizzle-orm'
 import { bd } from '../src/db/cliente'
 import { perfiles } from '../src/db/esquema'
 import { generarContrasenaTemporal } from '../src/lib/contrasenas'
+import { argumentosSueltos, describirDestino } from './entornos'
 
 async function principal() {
-  const [emailEscrito, ...palabras] = process.argv.slice(2)
+  const [emailEscrito, ...palabras] = argumentosSueltos()
   const email = emailEscrito?.trim().toLowerCase() ?? ''
   const nombre = palabras.join(' ').trim()
 
@@ -37,6 +43,8 @@ async function principal() {
     process.exitCode = 1
     return
   }
+
+  console.log(`Creando el administrador en ${describirDestino(VARIABLES)}…`)
 
   if (await bd.query.perfiles.findFirst({ where: eq(perfiles.email, email) })) {
     console.error(`Ya hay un usuario con el email ${email}. Si ha olvidado la contraseña, otro administrador puede restablecerla.`)

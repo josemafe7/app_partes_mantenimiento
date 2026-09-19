@@ -56,7 +56,8 @@ Sigue la convención de los proyectos hermanos (`Agentes de Voz`, `crm-dominia-a
   layout raíz fija `dynamic = 'force-dynamic'`, así que cada visita lee la base de datos
 
 Scripts de `package.json`: `dev`, `build`, `start`, `lint`, `typecheck`, `test`, `db:reset` (con su
-alias `db:seed`) y `db:generar`.
+alias `db:seed`), `db:generar`, `datos:copiar` (producción → desarrollo), `usuarios:prueba` y
+`usuarios:admin`.
 
 ---
 
@@ -207,8 +208,25 @@ nonce, `frame-ancestors 'none'`, `form-action 'self'`), y en `next.config.ts` `X
 
 ## Base de datos en Supabase
 
-- **Proyecto**: «App de Partes» (ref `qiydpgnryyypnkhuqzyv`, región eu-central-1, Postgres 17).
-- **Conexión**: `DATABASE_URL` en `.env.local` (plantilla en `.env.example`), por el pooler
+- **Dos proyectos**, los dos en eu-central-1 y con Postgres 17, iguales por dentro y con datos
+  distintos:
+  - **Producción**: «App de Partes» (ref `qiydpgnryyypnkhuqzyv`). Es el de la web publicada en
+    Vercel. Sus claves están en `.env.produccion.local`.
+  - **Desarrollo**: «App de Partes - Desarrollo» (ref `ujftpokeijrivicdwpnx`). Es contra el que se
+    trabaja en local. Sus claves están en `.env.local`, que es lo que lee `pnpm dev`.
+
+  Se mantienen iguales **por las migraciones**, no clonando la base: el de desarrollo se levantó
+  aplicando las mismas cuatro de `supabase/migrations/`, con sus nombres y versiones, y la
+  estructura de los dos da la misma huella (la consulta está en `AGENTS.md`). Lo que no viaja en las
+  migraciones y hay que repetir en cada proyecto: la contraseña del rol `app_avisos`, la
+  configuración de Auth y la clave secreta.
+
+  Todos los scripts van a desarrollo salvo que se les diga `--entorno=produccion`, y `pnpm db:reset`
+  —que vacía las tablas— se niega a tocar producción. La decisión vive en `scripts/entornos.ts` y se
+  prueba en `tests/entornos.test.ts`. `pnpm datos:copiar` trae a desarrollo los datos de producción
+  (sin los usuarios, que en desarrollo son de mentira: `pnpm usuarios:prueba`) y deja un respaldo en
+  `respaldos/`, que en el plan free es la única copia de seguridad que hay.
+- **Conexión**: `DATABASE_URL` en el archivo del entorno (plantilla en `.env.example`), por el pooler
   Supavisor en **modo sesión** (puerto 5432). El modo transacción (6543) no sirve con postgres.js:
   las consultas se quedan colgadas, y `src/db/cliente.ts` se niega a arrancar con él.
   Ese modo reserva una de las **15 conexiones** del proyecto por cada cliente conectado, y se las
@@ -227,9 +245,11 @@ nonce, `frame-ancestors 'none'`, `form-action 'self'`), y en `next.config.ts` `X
   público está desactivado y las contraseñas exigen 12 caracteres y los cuatro tipos de carácter.
   Las variables `SUPABASE_URL` y `SUPABASE_PUBLISHABLE_KEY` no son secretas; `SUPABASE_SECRET_KEY`
   sí (solo la usa el servidor para gestionar usuarios).
-- **Migraciones** (`supabase/migrations/`, con los mismos nombres y versiones que el historial del
-  proyecto): `esquema_inicial` y `usuarios`, generadas con `drizzle-kit` desde `src/db/esquema.ts`,
-  y `acceso_app` y `acceso_usuarios`, escritas a mano (rol, permisos, RLS y políticas).
+- **Migraciones** (`supabase/migrations/`, con los mismos nombres y versiones que el historial de
+  los dos proyectos): `esquema_inicial` y `usuarios`, generadas con `drizzle-kit` desde
+  `src/db/esquema.ts`, y `acceso_app` y `acceso_usuarios`, escritas a mano (rol, permisos, RLS y
+  políticas). Una migración nueva se aplica primero en desarrollo y, cuando funciona, en producción:
+  hasta que está en los dos, no está terminada.
 - El asesor de seguridad de Supabase solo da un aviso: «Leaked password protection disabled». Es la
   comprobación de contraseñas filtradas de Supabase, que solo existe en el plan Pro; la aplicación
   hace esa misma comprobación al elegir contraseña (`src/lib/filtraciones.ts`). Si el proyecto pasa
@@ -373,12 +393,16 @@ src/
   lib/                 dominio.ts, permisos.ts, sesion.ts, sesiones.ts, contrasenas.ts, filtraciones.ts,
                        seguridad.ts, supabase/ (clientes de Auth), validaciones.ts, fechas.ts, filtros.ts,
                        lecturaMensaje.ts y openrouter.ts (lectura con IA)…
-supabase/migrations/   migraciones SQL aplicadas en Supabase (y meta/ de drizzle-kit)
-scripts/               seed.ts (datos de ejemplo), crear-admin.ts (primer administrador) y entorno.ts
+supabase/migrations/   migraciones SQL aplicadas en los dos proyectos (y meta/ de drizzle-kit)
+scripts/               entornos.ts (desarrollo o producción, y las guardias) y entorno.ts (las carga);
+                       seed.ts (datos de ejemplo), copiar-datos.ts (producción -> desarrollo),
+                       usuarios-prueba.ts (un usuario por rol) y crear-admin.ts (primer administrador)
 tests/                 pruebas de dominio, fechas, filtros, permisos, validaciones, consultas y acciones
                        (estas dos, sobre PGlite) y lectura con IA (sin llamar a la API); ayudas/ monta
                        la base en memoria y sustituye Next y Supabase
-.env.local             conexión y claves de Supabase (no se versiona; plantilla en .env.example)
+.env.local             claves de Supabase en desarrollo (no se versiona; plantilla en .env.example)
+.env.produccion.local  lo mismo para producción; solo lo leen los scripts con --entorno=produccion
+respaldos/             copias de producción que deja «pnpm datos:copiar» (no se versionan)
 ```
 
 ---
@@ -517,7 +541,11 @@ formulario de parte.
 Los datos ya están en PostgreSQL (Supabase) y cada persona entra con su usuario. Antes de abrir la
 aplicación fuera de la oficina faltan:
 
-- una **política de copias de seguridad** del historial, según lo que incluya el plan de Supabase
+- una **política de copias de seguridad** del historial: el plan free de Supabase no hace ninguna,
+  y de momento lo único que hay son los respaldos que deja `pnpm datos:copiar` en `respaldos/`
+- en Vercel, las variables están puestas a la vez en `production` y en `preview`, así que un
+  despliegue de vista previa escribiría en la base de producción. Mientras todo vaya por `main` no
+  llega a pasar; con ramas, hay que apuntar `preview` al proyecto de desarrollo
 - un **SMTP propio** en Supabase si se quiere que cada usuario recupere su contraseña por email
 - un **segundo factor** (TOTP) para las cuentas de administrador
 - revisar el **tratamiento de datos** de la lectura con IA: envía a OpenRouter y al proveedor del
