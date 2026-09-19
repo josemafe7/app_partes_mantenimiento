@@ -142,8 +142,9 @@ Actions de `src/acciones/` mediante `useActionState`. El layout raíz fija
 - **Sistema visual** (detalle en la sección «Diseño» de `spec.md`): los colores salen de los tokens
   de `src/app/globals.css` y cada paleta tiene un papel fijo. `marca` (verde bosque) es para
   acciones, `lima` para lo seleccionado, `coral` para lo que pide atención y `gris` para los
-  neutros. El pastel de cada estado está en `ESTADO[...].tarjeta` de `dominio.ts`. No se usan los
-  colores sueltos de Tailwind (`red-*`, `amber-*`, `slate-*`…).
+  neutros. `claude` (el naranja de Claude) solo es el lienzo de la pantalla de inicio, que lo pide
+  con `data-lienzo="claude"`. El pastel de cada estado está en `ESTADO[...].tarjeta` de
+  `dominio.ts`. No se usan los colores sueltos de Tailwind (`red-*`, `amber-*`, `slate-*`…).
 
 ## Trampas conocidas
 

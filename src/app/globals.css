@@ -15,6 +15,9 @@
  * Cada estado del aviso tiene además su pastel (mantequilla, pervinca, lima,
  * orquídea, menta), como los imanes de colores de un tablero de planificación.
  * El reparto está en src/lib/dominio.ts.
+ *
+ * El naranja de Claude solo hace de lienzo en la pantalla de inicio (ver
+ * `data-lienzo` más abajo): no es un color para botones ni avisos.
  */
 @theme {
   --font-sans: var(--fuente-app), ui-sans-serif, system-ui, -apple-system, 'Segoe UI', sans-serif;
@@ -101,6 +104,7 @@
   --color-lavanda-700: #4f419b;
 
   --color-lienzo: #eaeee6;
+  --color-claude: #d97757;
 
   /* Jerarquía de esquinas: cuanto más grande el bloque, más redondeado. */
   --radius-panel: 1.375rem;
@@ -123,6 +127,15 @@
     font-family: var(--font-sans);
     -webkit-font-smoothing: antialiased;
     overflow-x: hidden;
+  }
+
+  /*
+   * Una página con `data-lienzo="claude"` cambia el lienzo por el naranja de
+   * Claude: el fondo y la cabecera del móvil cambian a la vez, y todo vuelve al
+   * salir de la página. Lo usa la pantalla de inicio.
+   */
+  body:has([data-lienzo='claude']) {
+    --color-lienzo: var(--color-claude);
   }
 
   /*
