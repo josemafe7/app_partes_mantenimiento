@@ -23,7 +23,7 @@ import {
 import { ESTADO } from '@/lib/dominio'
 import { haceTiempo, horasTexto, hoyISO, lunesDe, mesYAnio, semanaDesde, sumarDias } from '@/lib/fechas'
 import { enlaceAvisos } from '@/lib/filtros'
-import { esTecnico, puede, type Usuario } from '@/lib/permisos'
+import { esTecnico, puede } from '@/lib/permisos'
 import { exigirUsuario } from '@/lib/sesion'
 import { cn, plural } from '@/lib/utils'
 
@@ -32,17 +32,9 @@ const formatoHoras = new Intl.NumberFormat('es-ES', { maximumFractionDigits: 1 }
 export default async function PaginaPanel() {
   const usuario = await exigirUsuario()
 
-  // El inicio va sobre el naranja de Claude: `data-lienzo` cambia el fondo (globals.css).
-  return (
-    <div data-lienzo="claude">
-      {/* El técnico tiene su propio inicio: su jornada. */}
-      {esTecnico(usuario) ? <PanelTecnico usuario={usuario} /> : <PanelOficina usuario={usuario} />}
-    </div>
-  )
-}
+  // El técnico tiene su propio inicio: su jornada.
+  if (esTecnico(usuario)) return <PanelTecnico usuario={usuario} />
 
-/** Inicio de la oficina: el trabajo abierto de todos. */
-async function PanelOficina({ usuario }: { usuario: Usuario }) {
   if (await bdVacia()) {
     const administrador = puede(usuario, 'cargarDatosEjemplo')
     return (

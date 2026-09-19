@@ -278,11 +278,6 @@ usuario)
   - `marca`: verde bosque para las acciones (botón principal, enlaces, foco)
   - `lima`: lo seleccionado (sección activa del menú, filtro elegido, casilla marcada)
   - `coral`: lo que pide atención (urgente, retrasado, borrar)
-- La pantalla de inicio (`/`, tanto la de la oficina como la del técnico) va sobre el naranja de
-  Claude (`#d97757`, token `claude`) en lugar del lienzo salvia, a petición del usuario
-  (19-09-2026). La página lleva `data-lienzo="claude"` y `globals.css` cambia `--color-lienzo`
-  mientras está abierta, así que el fondo y la cabecera del móvil cambian juntos. Encima del
-  naranja, la descripción del encabezado pasa a gris oscuro para que se lea.
 - Cada estado del aviso tiene su pastel, como los imanes de un tablero de planificación:
   pendiente en mantequilla, asignado en pervinca, en curso en lima, en espera en orquídea,
   finalizado en menta y cancelado en gris. Las tarjetas de la agenda y del tablero toman ese
