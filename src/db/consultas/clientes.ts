@@ -5,7 +5,7 @@ import { and, asc, count, eq, sql } from 'drizzle-orm'
 import { bd } from '@/db/cliente'
 import { avisos, clientes, locales } from '@/db/esquema'
 import type { ClienteCatalogo } from '@/lib/lecturaMensaje'
-import { normalizar } from '@/lib/utils'
+import { esIdValido, normalizar } from '@/lib/utils'
 
 /*
  * Subconsultas correlacionadas.
@@ -74,6 +74,7 @@ export async function listarClientes({ q, incluirArchivados }: FiltrosClientes =
 export type ClienteEnLista = Awaited<ReturnType<typeof listarClientes>>[number]
 
 export async function obtenerCliente(id: number) {
+  if (!esIdValido(id)) return null
   const fila = await bd.query.clientes.findFirst({ where: eq(clientes.id, id) })
   return fila ?? null
 }
@@ -120,6 +121,7 @@ export async function localesDeCliente(clienteId: number, incluirArchivados = fa
 export type LocalEnLista = Awaited<ReturnType<typeof localesDeCliente>>[number]
 
 export async function obtenerLocal(id: number) {
+  if (!esIdValido(id)) return null
   const fila = await bd.query.locales.findFirst({
     where: eq(locales.id, id),
     with: { cliente: true },

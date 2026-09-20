@@ -8,7 +8,7 @@ import { ESTADOS, type Estado } from '@/lib/dominio'
 import { hoyISO } from '@/lib/fechas'
 import type { FiltrosAvisos } from '@/lib/filtros'
 import type { Ambito } from '@/lib/permisos'
-import { normalizar } from '@/lib/utils'
+import { esIdValido, normalizar } from '@/lib/utils'
 
 const NO_CERRADOS = sql`${avisos.estado} not in ('finalizado', 'cancelado')`
 
@@ -166,6 +166,8 @@ export type AvisoEnLista = Awaited<ReturnType<typeof listarAvisos>>[number]
 
 /** Ficha completa: aviso, cliente, local, técnico, partes y movimientos. */
 export async function obtenerAviso(id: number) {
+  // El id llega de la URL: lo que no puede ser un id «no existe», sin preguntar a la base.
+  if (!esIdValido(id)) return null
   const fila = await bd.query.avisos.findFirst({
     where: eq(avisos.id, id),
     with: {
@@ -188,6 +190,7 @@ export async function obtenerAviso(id: number) {
 export type AvisoCompleto = NonNullable<Awaited<ReturnType<typeof obtenerAviso>>>
 
 export async function obtenerParte(id: number) {
+  if (!esIdValido(id)) return null
   const fila = await bd.query.partes.findFirst({
     where: (parte, { eq: igual }) => igual(parte.id, id),
     with: { aviso: true, tecnico: true },

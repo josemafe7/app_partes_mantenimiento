@@ -24,8 +24,10 @@ type Props = {
 
 export default async function PaginaTecnicos({ searchParams }: Props) {
   const usuario = await exigirPermiso('gestionarTecnicos')
-  const { q = '', archivados } = await searchParams
-  const verArchivados = archivados === '1'
+  // Con ?q=a&q=b no llega un texto sino una lista: se trata como búsqueda vacía.
+  const parametros = await searchParams
+  const q = typeof parametros.q === 'string' ? parametros.q.slice(0, 120) : ''
+  const verArchivados = parametros.archivados === '1'
 
   const tecnicos = await listarTecnicos({ q, incluirArchivados: verArchivados })
   // Dar de alta técnicos es del administrador; la oficina corrige las fichas.

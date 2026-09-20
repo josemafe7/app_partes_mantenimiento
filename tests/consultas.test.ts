@@ -498,3 +498,35 @@ describe('agenda', () => {
     }
   })
 })
+
+describe('ids que llegan de la URL', () => {
+  // /avisos/abc, /avisos/1.5 o /avisos/99999999999 se convierten con Number(): a
+  // Postgres le llegaba «NaN» o un número que no cabe en un integer, la consulta
+  // fallaba y salía la pantalla de error en vez de «no existe».
+  const RAROS = [Number('abc'), Number('1.png'), 1.5, 0, -3, 99_999_999_999, Infinity]
+
+  it('lo que no puede ser un id «no existe», sin preguntar a la base', async () => {
+    const avisos = await import('../src/db/consultas/avisos')
+    const clientes = await import('../src/db/consultas/clientes')
+    const tecnicos = await import('../src/db/consultas/tecnicos')
+
+    for (const raro of RAROS) {
+      assert.equal(await avisos.obtenerAviso(raro), null, `obtenerAviso(${raro})`)
+      assert.equal(await avisos.obtenerParte(raro), null, `obtenerParte(${raro})`)
+      assert.equal(await clientes.obtenerCliente(raro), null, `obtenerCliente(${raro})`)
+      assert.equal(await clientes.obtenerLocal(raro), null, `obtenerLocal(${raro})`)
+      assert.equal(await tecnicos.obtenerTecnico(raro), null, `obtenerTecnico(${raro})`)
+    }
+  })
+
+  it('un id de verdad sigue encontrando su ficha', async () => {
+    const avisos = await import('../src/db/consultas/avisos')
+    const { id } = todosLosAvisos[0]
+    assert.equal((await avisos.obtenerAviso(id))?.id, id)
+  })
+
+  it('un id que cabe pero no existe tampoco da error', async () => {
+    const avisos = await import('../src/db/consultas/avisos')
+    assert.equal(await avisos.obtenerAviso(2_147_483_647), null)
+  })
+})

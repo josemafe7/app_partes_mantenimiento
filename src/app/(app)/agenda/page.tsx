@@ -25,6 +25,7 @@ import {
   sumarDias,
   sumarMeses,
 } from '@/lib/fechas'
+import { ES_ID } from '@/lib/filtros'
 import { ambitoDe, puede } from '@/lib/permisos'
 import { exigirUsuario } from '@/lib/sesion'
 import { cn, plural } from '@/lib/utils'
@@ -62,7 +63,7 @@ export default async function PaginaAgenda({ searchParams }: Props) {
   const lunes = lunesDe(semana && esFechaISO(semana) ? semana : hoy)
   const inicio = mes && esFechaISO(`${mes}-01`) ? `${mes}-01` : inicioDeMes(hoy)
   const dias = enMes ? cuadriculaMes(inicio) : semanaDesde(lunes)
-  const tecnicoId = oficina && tecnico && /^\d+$/.test(tecnico) ? Number(tecnico) : undefined
+  const tecnicoId = oficina && tecnico && ES_ID.test(tecnico) ? Number(tecnico) : undefined
 
   const [avisos, sinProgramar, tecnicos] = await Promise.all([
     avisosProgramados(dias[0], dias[dias.length - 1], tecnicoId, ambito),

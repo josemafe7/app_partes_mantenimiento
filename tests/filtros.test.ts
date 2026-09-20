@@ -16,7 +16,7 @@ import {
   VISTA,
   VISTAS,
 } from '../src/lib/filtros'
-import { iniciales, inicialesEmpresa, normalizar, plural } from '../src/lib/utils'
+import { esIdValido, iniciales, inicialesEmpresa, normalizar, plural } from '../src/lib/utils'
 
 describe('leerFiltros', () => {
   it('sin parámetros muestra el trabajo abierto', () => {
@@ -153,5 +153,24 @@ describe('utilidades de texto', () => {
     assert.equal(inicialesEmpresa('Restaurante La Brasería del Puerto'), 'RB')
     assert.equal(inicialesEmpresa('Cafeterías Grano & Co.'), 'CG')
     assert.equal(inicialesEmpresa('Frescal'), 'F')
+  })
+})
+
+describe('ids en la URL', () => {
+  it('un técnico o un cliente con más cifras de las que caben en un integer se descarta', () => {
+    const filtros = leerFiltros({ tecnico: '99999999999', cliente: '12345678901' })
+    assert.equal(filtros.tecnico, '')
+    assert.equal(filtros.cliente, '')
+  })
+
+  it('los normales se conservan, y «sin» también', () => {
+    assert.equal(leerFiltros({ tecnico: '7', cliente: '123456789' }).tecnico, '7')
+    assert.equal(leerFiltros({ cliente: '123456789' }).cliente, '123456789')
+    assert.equal(leerFiltros({ tecnico: 'sin' }).tecnico, 'sin')
+  })
+
+  it('esIdValido solo acepta enteros positivos de 32 bits', () => {
+    for (const bueno of [1, 42, 2_147_483_647]) assert.equal(esIdValido(bueno), true, String(bueno))
+    for (const malo of [0, -1, 1.5, NaN, Infinity, 2_147_483_648]) assert.equal(esIdValido(malo), false, String(malo))
   })
 })

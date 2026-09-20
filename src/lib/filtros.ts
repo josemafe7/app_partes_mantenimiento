@@ -67,6 +67,12 @@ export const FILTROS_VACIOS: FiltrosAvisos = {
 
 type Parametros = Record<string, string | string[] | undefined>
 
+/**
+ * Un id escrito en la URL: hasta 9 cifras, para que quepa en un `integer` de
+ * Postgres. Con más, la consulta fallaba y salía la pantalla de error.
+ */
+export const ES_ID = /^\d{1,9}$/
+
 function uno(parametros: Parametros, clave: string): string {
   const valor = parametros[clave]
   if (Array.isArray(valor)) return valor[0] ?? ''
@@ -91,8 +97,8 @@ export function leerFiltros(parametros: Parametros): FiltrosAvisos {
     estado: enumerado(uno(parametros, 'estado'), ESTADOS),
     prioridad: enumerado(uno(parametros, 'prioridad'), PRIORIDADES),
     categoria: enumerado(uno(parametros, 'categoria'), CATEGORIAS),
-    tecnico: tecnico === 'sin' || /^\d+$/.test(tecnico) ? tecnico : '',
-    cliente: /^\d+$/.test(cliente) ? cliente : '',
+    tecnico: tecnico === 'sin' || ES_ID.test(tecnico) ? tecnico : '',
+    cliente: ES_ID.test(cliente) ? cliente : '',
     desde: esFechaISO(desde) ? desde : '',
     hasta: esFechaISO(hasta) ? hasta : '',
   }

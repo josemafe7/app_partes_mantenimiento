@@ -10,6 +10,7 @@ import { Tarjeta } from '@/componentes/ui/Tarjeta'
 import { avisosPorEstado } from '@/db/consultas/avisos'
 import { tecnicosParaSelector } from '@/db/consultas/tecnicos'
 import { ESTADOS } from '@/lib/dominio'
+import { ES_ID } from '@/lib/filtros'
 import { exigirPermiso } from '@/lib/sesion'
 
 export const metadata: Metadata = { title: 'Tablero' }
@@ -21,7 +22,7 @@ type Props = {
 export default async function PaginaTablero({ searchParams }: Props) {
   await exigirPermiso('gestionarAvisos')
   const { tecnico } = await searchParams
-  const tecnicoId = tecnico && /^\d+$/.test(tecnico) ? Number(tecnico) : undefined
+  const tecnicoId = tecnico && ES_ID.test(tecnico) ? Number(tecnico) : undefined
 
   const [columnas, tecnicos] = await Promise.all([
     avisosPorEstado(tecnicoId),

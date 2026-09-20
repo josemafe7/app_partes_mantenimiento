@@ -5,7 +5,7 @@ import { and, asc, count, desc, eq, gte, sql } from 'drizzle-orm'
 import { bd } from '@/db/cliente'
 import { avisos, partes, tecnicos } from '@/db/esquema'
 import { hoyISO, sumarDias } from '@/lib/fechas'
-import { normalizar } from '@/lib/utils'
+import { esIdValido, normalizar } from '@/lib/utils'
 
 /*
  * Subconsultas correlacionadas.
@@ -72,6 +72,7 @@ export async function listarTecnicos({ q, incluirArchivados }: FiltrosTecnicos =
 export type TecnicoEnLista = Awaited<ReturnType<typeof listarTecnicos>>[number]
 
 export async function obtenerTecnico(id: number) {
+  if (!esIdValido(id)) return null
   const fila = await bd.query.tecnicos.findFirst({ where: eq(tecnicos.id, id) })
   return fila ?? null
 }

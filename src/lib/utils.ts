@@ -25,6 +25,16 @@ export function plural(cantidad: number, singular: string, plural: string): stri
   return `${cantidad} ${cantidad === 1 ? singular : plural}`
 }
 
+/**
+ * ¿Puede ser el id de una fila? Los ids son `integer` de Postgres: enteros
+ * positivos de 32 bits. Lo que llega de la URL (`/avisos/abc`, `1.5`,
+ * `99999999999`) se convierte con `Number()` y, sin este filtro, Postgres lo
+ * rechaza con un error y sale la pantalla de fallo en vez de «no existe».
+ */
+export function esIdValido(valor: number): boolean {
+  return Number.isInteger(valor) && valor > 0 && valor <= 2_147_483_647
+}
+
 /** Quita acentos y pasa a minúsculas, para buscar «climatizacion» y encontrar «climatización». */
 export function normalizar(texto: string): string {
   return texto
