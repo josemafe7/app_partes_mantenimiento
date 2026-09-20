@@ -315,4 +315,15 @@ describe('datos de ejemplo', () => {
     assert.match(resultado.mensaje ?? '', /^Cargados \d+ clientes, \d+ locales, \d+ técnicos, \d+ avisos y \d+ partes/)
     assert.ok((await contar('clientes')) > 0)
   })
+
+  it('no borra lo que hubiera: los técnicos siguen ahí, vinculados a sus usuarios', async () => {
+    // «Sin clientes» no es «sin nada»: en producción puede haber técnicos dados de alta.
+    assert.equal(await existe('tecnicos', fichas.tecnicos.marta.id), true, 'ha borrado la ficha de Marta')
+    assert.equal(await existe('tecnicos', fichas.tecnicos.sergio.id), true, 'ha borrado la ficha de Sergio')
+
+    const perfil = await bd.query.perfiles.findFirst({
+      where: (perfil, { eq }) => eq(perfil.id, fichas.usuarios.tecnico.id),
+    })
+    assert.equal(perfil?.tecnicoId, fichas.tecnicos.marta.id, 'la técnica se ha quedado sin su ficha')
+  })
 })

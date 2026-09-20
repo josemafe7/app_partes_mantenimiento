@@ -431,8 +431,11 @@ el kanban tengan siempre contenido realista.
 - `db:reset` vacía las seis tablas de datos, reinicia la numeración de los ids y recarga los datos.
   Trabaja sobre la base de Supabase, así que se lleva por delante lo que haya. Los usuarios se
   conservan, pero los técnicos pierden el vínculo con su ficha (las fichas se crean de nuevo) y hay
-  que volver a vincularlos en «Usuarios». Desde el panel solo lo puede hacer el administrador, y solo
-  con la base vacía
+  que volver a vincularlos en «Usuarios»
+- El botón del panel («Cargar datos de ejemplo») es otra cosa: solo lo ve el administrador, solo
+  cuando no hay clientes, y **no borra nada** (`sembrar({ limpiar: false })`). Existe también en
+  producción, y «sin clientes» no es «sin nada»: los técnicos que ya estuvieran dados de alta se
+  conservan, con su vínculo al usuario, y conviven con los de ejemplo
 
 ---
 

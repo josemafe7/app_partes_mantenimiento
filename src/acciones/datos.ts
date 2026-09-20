@@ -12,8 +12,10 @@ import { usuarioDeLaAccion } from '@/lib/sesion'
  * Carga los datos de ejemplo desde la propia aplicación.
  * Es el atajo para no tener que ir a la terminal la primera vez.
  *
- * Solo un administrador y solo con la base vacía: la siembra borra lo que haya,
- * así que llamada a mano sobre una base con datos se los llevaría por delante.
+ * Solo un administrador y solo sin clientes. Y no borra nada (`limpiar: false`):
+ * esta acción existe también en producción, y «sin clientes» no quiere decir
+ * «sin nada»: puede haber técnicos dados de alta y vinculados a sus usuarios.
+ * Vaciar las tablas es cosa de `pnpm db:reset`, que tiene su guardia de entornos.
  */
 export async function cargarDatosEjemplo(
   _previo: ResultadoAccion = ESTADO_INICIAL,
@@ -23,7 +25,7 @@ export async function cargarDatosEjemplo(
     return { ok: false, mensaje: 'La base ya tiene datos: los de ejemplo solo se cargan en una vacía.' }
   }
 
-  const resumen = await sembrar({ limpiar: true })
+  const resumen = await sembrar({ limpiar: false })
 
   revalidatePath('/', 'layout')
 
