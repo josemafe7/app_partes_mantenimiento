@@ -14,6 +14,7 @@
 import { drizzle } from 'drizzle-orm/postgres-js'
 import postgres from 'postgres'
 
+import { cifrado } from './cifrado'
 import * as esquema from './esquema'
 
 function abrirConexion() {
@@ -38,6 +39,7 @@ function abrirConexion() {
   }
 
   const cliente = postgres(url, {
+    ...cifrado(url),
     // El pooler en modo sesión reparte 15 conexiones entre TODO lo que use la
     // aplicación a la vez: la web publicada en Vercel (cada instancia abre las
     // suyas y se congela entre visitas sin soltarlas) y cualquier `pnpm dev`

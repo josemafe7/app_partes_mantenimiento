@@ -27,6 +27,7 @@ import { mkdirSync, writeFileSync } from 'node:fs'
 
 import postgres from 'postgres'
 
+import { cifrado } from '../src/db/cifrado'
 import {
   ARCHIVO,
   banderas,
@@ -57,7 +58,7 @@ function conectar(variables: Variables, cual: string) {
   if (!url) throw new Error(`Falta DATABASE_URL en el archivo de ${cual}.`)
   // Una conexión y poco tiempo de espera: las 15 del pooler se reparten entre
   // todo lo que haya abierto (ver AGENTS.md).
-  return postgres(url, { max: 1, idle_timeout: 5, connect_timeout: 15 })
+  return postgres(url, { ...cifrado(url), max: 1, idle_timeout: 5, connect_timeout: 15 })
 }
 
 /** Cada fila como objeto JSON, tal y como la devuelve Postgres. */

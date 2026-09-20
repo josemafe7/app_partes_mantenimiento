@@ -11,6 +11,7 @@
 
 import postgres from 'postgres'
 
+import { cifrado } from '../src/db/cifrado'
 import {
   ARCHIVO,
   describirDestino,
@@ -25,7 +26,8 @@ import {
 type Recuento = { tabla: string; filas: number }
 
 async function contar(variables: Variables): Promise<Recuento[]> {
-  const bd = postgres(variables.DATABASE_URL ?? '', { max: 1, connect_timeout: 15, idle_timeout: 1 })
+  const url = variables.DATABASE_URL ?? ''
+  const bd = postgres(url, { ...cifrado(url), max: 1, connect_timeout: 15, idle_timeout: 1 })
   try {
     const [fila] = await bd<Record<string, number>[]>`
       select
