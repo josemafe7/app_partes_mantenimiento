@@ -14,7 +14,7 @@ export function configSupabase() {
   const clavePublicable = process.env.SUPABASE_PUBLISHABLE_KEY
   if (!url || !clavePublicable) {
     throw new Error(
-      'Faltan SUPABASE_URL y SUPABASE_PUBLISHABLE_KEY en .env.local: copia los valores de .env.example.',
+      'Faltan SUPABASE_URL y SUPABASE_PUBLISHABLE_KEY en .env.local: .env.example dice de dónde se copian.',
     )
   }
   return { url, clavePublicable }
