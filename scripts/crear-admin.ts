@@ -88,7 +88,8 @@ async function principal() {
 
 principal()
   .catch((error) => {
-    console.error(error)
+    // Solo el mensaje: el objeto entero puede llevar la cadena de conexión.
+    console.error(`\n${error instanceof Error ? error.message : error}`)
     process.exitCode = 1
   })
   .finally(() => bd.$client.end())

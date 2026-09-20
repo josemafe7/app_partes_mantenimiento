@@ -17,6 +17,23 @@ import postgres from 'postgres'
 import { cifrado } from './cifrado'
 import * as esquema from './esquema'
 
+/**
+ * El puerto de la cadena de conexión. El «Invalid URL» de Node lleva dentro la
+ * cadena entera (`input`), contraseña incluida, y acabaría en la terminal o en
+ * los registros de Vercel: aquí se cambia por un error que no la lleva (ni como
+ * `cause`). Pasa con una contraseña con `/`, `?` o `#` sin codificar.
+ */
+function puertoDe(url: string): string {
+  try {
+    return new URL(url).port
+  } catch {
+    throw new Error(
+      'DATABASE_URL no es una URL válida. Si la contraseña tiene símbolos, hay que codificarlos ' +
+        '(%40 para @, %2F para /, %3F para ?, %23 para #).',
+    )
+  }
+}
+
 function abrirConexion() {
   const url = process.env.DATABASE_URL
   if (!url) {
@@ -32,7 +49,7 @@ function abrirConexion() {
   // siempre, sin ningún error. Probado el 20-09-2026, también con
   // `prepare: false`: en cuanto dos consultas comparten conexión, se cuelga.
   // Mejor fallar aquí con un aviso claro.
-  if (new URL(url).port === '6543') {
+  if (puertoDe(url) === '6543') {
     throw new Error(
       'DATABASE_URL usa el puerto 6543 (modo transacción del pooler): cámbialo al 5432 (modo sesión).',
     )
