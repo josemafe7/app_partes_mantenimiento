@@ -18,6 +18,10 @@ const CABECERAS_DE_SEGURIDAD = [
   { key: 'Permissions-Policy', value: 'camera=(), microphone=(), geolocation=(), browsing-topics=()' },
   // Una vez visitada por HTTPS, el navegador ya no usa HTTP (se ignora en local).
   { key: 'Strict-Transport-Security', value: 'max-age=63072000; includeSubDomains' },
+  // Una ventana abierta desde otra web (o hacia otra) no comparte nada con esta.
+  { key: 'Cross-Origin-Opener-Policy', value: 'same-origin' },
+  // Aplicación privada: que los buscadores no guarden ni el login.
+  { key: 'X-Robots-Tag', value: 'noindex, nofollow' },
 ]
 
 const nextConfig: NextConfig = {

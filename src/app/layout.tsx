@@ -21,6 +21,9 @@ export const metadata: Metadata = {
   },
   description:
     'Gestión de avisos, técnicos y partes de trabajo para una empresa de mantenimiento de locales.',
+  // Es una aplicación privada: la única pantalla que ve un buscador es el login,
+  // y no hace falta que salga en Google (también va en la cabecera X-Robots-Tag).
+  robots: { index: false, follow: false },
 }
 
 export const viewport: Viewport = {
