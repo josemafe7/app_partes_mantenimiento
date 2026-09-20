@@ -372,6 +372,11 @@ Actions de `src/acciones/` mediante `useActionState`. El layout raíz fija
   suelta se decide con `pointerWithin` y, si no hay nada bajo el cursor, con `closestCenter`. El
   `DndContext` lleva un `id` fijo: sin él, los `aria-describedby` de dnd-kit no coinciden entre
   servidor y navegador y React avisa de un desajuste al hidratar.
+- **`suppressHydrationWarning` en el `<body>`** (`src/app/layout.tsx`): las extensiones del navegador
+  le meten atributos (`data-atm-ext-installed`, las de contraseñas, las de temas) antes de que React
+  hidrate, y React avisaba de un desajuste que no es del proyecto. Calla solo el aviso de ese
+  elemento, no el de sus hijos, así que un desajuste de verdad dentro de la aplicación se sigue
+  viendo. No se pone en `<html>`, que es donde va la variable de la fuente.
 - **Fuente**: la variable de `next/font` va en `<html>`, no en `<body>`. El tema la lee desde la
   raíz (`--font-sans: var(--fuente-app)`) y en `<body>` quedaría fuera de alcance: la página
   saldría con la fuente del sistema sin ningún error.

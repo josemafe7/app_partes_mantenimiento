@@ -45,7 +45,19 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     // desde la raíz (--font-sans), y en <body> quedaría fuera de su alcance.
     <html lang="es" className={fuente.variable}>
       {/* La navegación va en el layout de la aplicación, (app)/layout.tsx: el login no la lleva. */}
-      <body className="antialiased">{children}</body>
+      {/*
+       * `suppressHydrationWarning` por las extensiones del navegador, que
+       * marcan el <body> antes de que React hidrate (`data-atm-ext-installed`,
+       * las de contraseñas, las de temas…). El servidor manda un <body> sin ese
+       * atributo, React encuentra otro y avisa de un desajuste que no es de la
+       * aplicación y que aquí nadie puede arreglar. Solo calla el aviso de este
+       * elemento, no el de sus hijos: un desajuste de verdad dentro de la
+       * aplicación se sigue viendo. No se pone en <html> a propósito, que es
+       * donde va la variable de la fuente y donde sí interesa enterarse.
+       */}
+      <body className="antialiased" suppressHydrationWarning>
+        {children}
+      </body>
     </html>
   )
 }
