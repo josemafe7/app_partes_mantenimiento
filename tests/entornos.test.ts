@@ -11,6 +11,7 @@ import assert from 'node:assert/strict'
 import { describe, it } from 'node:test'
 
 import {
+  aplicarVariables,
   argumentosSueltos,
   banderas,
   describirDestino,
@@ -104,6 +105,23 @@ describe('exigirDesarrollo', () => {
 
   it('solo se salta con el permiso expreso', () => {
     assert.doesNotThrow(() => exigirDesarrollo(variables(REF_PRODUCCION), 'pnpm db:reset', { permitido: true }))
+  })
+})
+
+describe('aplicarVariables', () => {
+  it('pisa lo que ya hubiera en la terminal: la conexión usa lo mismo que miran las guardias', () => {
+    const delProceso = { DATABASE_URL: conexion(REF_PRODUCCION), OTRA: 'se queda' }
+    aplicarVariables(variables(REF_DESARROLLO), delProceso)
+
+    assert.equal(delProceso.DATABASE_URL, conexion(REF_DESARROLLO))
+    assert.equal(esProduccion(delProceso), false)
+    assert.equal(delProceso.OTRA, 'se queda')
+  })
+
+  it('no borra una variable que el archivo no trae', () => {
+    const delProceso: Record<string, string | undefined> = { OPENROUTER_MODELO: 'uno' }
+    aplicarVariables({ OPENROUTER_MODELO: undefined }, delProceso)
+    assert.equal(delProceso.OPENROUTER_MODELO, 'uno')
   })
 })
 

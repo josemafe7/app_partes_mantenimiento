@@ -9,7 +9,7 @@
  * Las funciones que deciden todo esto están en `entornos.ts`, sin efectos.
  */
 
-import { ARCHIVO, entornoPedido, exigirCoherencia, variablesDe, type Entorno, type Variables } from './entornos'
+import { aplicarVariables, entornoPedido, exigirCoherencia, variablesDe, type Entorno, type Variables } from './entornos'
 
 /** El entorno que se ha cargado. */
 export const ENTORNO: Entorno = entornoPedido()
@@ -19,4 +19,6 @@ export const VARIABLES: Variables = variablesDe(ENTORNO)
 
 exigirCoherencia(VARIABLES, ENTORNO)
 
-process.loadEnvFile(ARCHIVO[ENTORNO])
+// Mandan las del archivo, también sobre lo que ya hubiera en la terminal: las
+// guardias miran VARIABLES y la conexión usa process.env, y tienen que coincidir.
+aplicarVariables(VARIABLES)

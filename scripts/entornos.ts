@@ -87,6 +87,19 @@ export function variablesDe(entorno: Entorno): Variables {
   return parseEnv(readFileSync(archivo, 'utf8')) as Variables
 }
 
+/**
+ * Deja las variables del archivo en `destino` (`process.env`), **pisando** lo
+ * que ya hubiera. `process.loadEnvFile` no pisa: con una `DATABASE_URL` de
+ * producción ya puesta en la terminal, las guardias comprobaban el archivo
+ * (desarrollo) y la conexión se abría con la de la terminal (producción). Así
+ * lo que se comprueba y lo que se usa es siempre lo mismo.
+ */
+export function aplicarVariables(variables: Variables, destino: Variables = process.env): void {
+  for (const [clave, valor] of Object.entries(variables)) {
+    if (valor !== undefined) destino[clave] = valor
+  }
+}
+
 /* -------------------------------------------- Qué proyecto hay detrás */
 
 /**
