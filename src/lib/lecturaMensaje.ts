@@ -170,9 +170,14 @@ Escribe en español de España, con frases sencillas.
 ${catalogo.map(lineaCatalogo).join('\n\n')}`
 }
 
-/** El mensaje del cliente, marcado para que no se confunda con las instrucciones. */
+/**
+ * El mensaje del cliente, marcado para que no se confunda con las instrucciones.
+ * Si el propio texto trae la etiqueta (`</mensaje>`), se neutraliza: si no, podría
+ * «cerrar» el dato y hacer pasar por instrucciones lo que viene detrás.
+ */
 export function mensajeParaLeer(mensaje: string): string {
-  return `Mensaje recibido:\n\n<mensaje>\n${mensaje.trim()}\n</mensaje>`
+  const texto = mensaje.trim().replace(/<\s*\/?\s*mensaje\s*>/gi, '[mensaje]')
+  return `Mensaje recibido:\n\n<mensaje>\n${texto}\n</mensaje>`
 }
 
 /* ------------------------------------------------------ Comprobar la salida */
