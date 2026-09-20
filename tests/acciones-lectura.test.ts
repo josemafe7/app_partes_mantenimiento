@@ -239,3 +239,96 @@ describe('lectura de mensajes con IA', () => {
     assert.match((await lectura.leerMensaje(MENSAJE)).mensaje ?? '', /No se ha podido hablar con la IA/)
   })
 })
+
+/* ------------------------------------------------------------ Tope de uso */
+
+describe('tope de uso de la lectura con IA', () => {
+  // Cada lectura es una llamada de pago, y la acción se puede llamar a mano sin
+  // pasar por el botón: sin tope, una cuenta robada (o un bucle) gasta el saldo.
+  beforeEach(async () => {
+    await bd.delete(esquema.lecturasIa)
+  })
+
+  async function anotadas(usuarioId: string): Promise<number> {
+    const filas = await bd.select().from(esquema.lecturasIa).where(eq(esquema.lecturasIa.usuarioId, usuarioId))
+    return filas.length
+  }
+
+  /** Deja `cuantas` lecturas ya hechas por ese usuario hace `minutos`. */
+  async function yaHechas(usuarioId: string, cuantas: number, minutos: number) {
+    const fecha = new Date(Date.now() - minutos * 60_000)
+    await bd.insert(esquema.lecturasIa).values(Array.from({ length: cuantas }, () => ({ usuarioId, fecha })))
+  }
+
+  it('cada lectura queda anotada con quién la pidió, y nada más', async (t) => {
+    simularOpenRouter(t)
+    assert.equal((await lectura.leerMensaje(MENSAJE)).ok, true)
+
+    const filas = await bd.select().from(esquema.lecturasIa)
+    assert.equal(filas.length, 1)
+    assert.deepEqual(Object.keys(filas[0]).sort(), ['fecha', 'id', 'usuarioId'], 'no se guarda el mensaje')
+    assert.equal(filas[0].usuarioId, fichas.usuarios.oficina.id)
+  })
+
+  it('tras 20 en un minuto ya no llama a la IA; pasado el minuto, vuelve a leer', async (t) => {
+    const ia = simularOpenRouter(t)
+    for (let i = 0; i < 20; i++) assert.equal((await lectura.leerMensaje(MENSAJE)).ok, true, `lectura ${i + 1}`)
+
+    const frenada = await lectura.leerMensaje(MENSAJE)
+    assert.equal(frenada.ok, false)
+    assert.match(frenada.mensaje ?? '', /muchas lecturas seguidas/)
+    assert.equal(ia.peticiones.length, 20, 'la lectura frenada ha llegado a OpenRouter')
+    assert.equal(await anotadas(fichas.usuarios.oficina.id), 20, 'la frenada no se anota')
+
+    await bd.execute(sql`update lecturas_ia set fecha = fecha - interval '2 minutes'`)
+    assert.equal((await lectura.leerMensaje(MENSAJE)).ok, true)
+    assert.equal(ia.peticiones.length, 21)
+  })
+
+  it('el tope es de cada usuario: el de una persona no frena a otra', async (t) => {
+    const ia = simularOpenRouter(t)
+    await yaHechas(fichas.usuarios.oficina.id, 20, 0)
+    assert.match((await lectura.leerMensaje(MENSAJE)).mensaje ?? '', /muchas lecturas seguidas/)
+
+    entrarComo(fichas.usuarios.administrador)
+    assert.equal((await lectura.leerMensaje(MENSAJE)).ok, true)
+    assert.equal(ia.peticiones.length, 1)
+  })
+
+  it('con 300 en el día se acabó hasta mañana; lo de hace más de un día ni cuenta ni se guarda', async (t) => {
+    const ia = simularOpenRouter(t)
+    await yaHechas(fichas.usuarios.oficina.id, 300, 120)
+    const frenada = await lectura.leerMensaje(MENSAJE)
+    assert.match(frenada.mensaje ?? '', /tope de lecturas con IA de hoy/)
+    assert.equal(ia.peticiones.length, 0)
+
+    await bd.execute(sql`update lecturas_ia set fecha = fecha - interval '23 hours'`)
+    assert.equal((await lectura.leerMensaje(MENSAJE)).ok, true)
+    assert.equal(await anotadas(fichas.usuarios.oficina.id), 1, 'no ha borrado las de más de un día')
+  })
+
+  it('una ráfaga a la vez no se cuela: pasan 20 y ni una más', async (t) => {
+    const ia = simularOpenRouter(t)
+    const resultados = await Promise.all(Array.from({ length: 30 }, () => lectura.leerMensaje(MENSAJE)))
+    assert.equal(resultados.filter((resultado) => resultado.ok).length, 20)
+    assert.equal(ia.peticiones.length, 20)
+  })
+
+  it('una lectura que falla también cuenta: el tope protege el gasto, no el acierto', async (t) => {
+    const ia = simularOpenRouter(t)
+    ia.estado = 500
+    assert.equal((await lectura.leerMensaje(MENSAJE)).ok, false)
+    assert.equal(await anotadas(fichas.usuarios.oficina.id), 1)
+  })
+
+  it('quien no puede usarla, o manda algo que no llega a la IA, no gasta del tope', async (t) => {
+    simularOpenRouter(t)
+    entrarComo(fichas.usuarios.tecnico)
+    assert.deepEqual(await lectura.leerMensaje(MENSAJE), SIN_PERMISO)
+    entrarComo(fichas.usuarios.oficina)
+    await lectura.leerMensaje('   ')
+    await lectura.leerMensaje('x'.repeat(100_000))
+
+    assert.equal((await bd.select().from(esquema.lecturasIa)).length, 0)
+  })
+})

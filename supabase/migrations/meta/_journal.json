@@ -36,6 +36,13 @@
       "when": 1789889273517,
       "tag": "20260920072846_privilegios_por_defecto",
       "breakpoints": true
+    },
+    {
+      "idx": 5,
+      "version": "7",
+      "when": 1789889356600,
+      "tag": "20260920073151_lecturas_ia",
+      "breakpoints": true
     }
   ]
 }

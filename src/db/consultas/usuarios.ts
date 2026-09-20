@@ -1,9 +1,9 @@
 /** Consultas de usuarios: perfiles, vínculo con los técnicos e intentos de acceso. */
 
-import { and, asc, count, desc, eq, gte, isNull, lt, ne, or, type SQL } from 'drizzle-orm'
+import { and, asc, count, desc, eq, gte, isNull, lt, ne, or, sql, type SQL } from 'drizzle-orm'
 
 import { bd } from '@/db/cliente'
-import { intentosAcceso, perfiles, tecnicos } from '@/db/esquema'
+import { intentosAcceso, lecturasIa, perfiles, tecnicos } from '@/db/esquema'
 
 /* ------------------------------------------------------------------ Perfiles */
 
@@ -144,5 +144,47 @@ export async function registrarIntento(email: string, ip: string | null, exito: 
         .where(and(eq(intentosAcceso.email, email), eq(intentosAcceso.exito, false)))
     }
     await tx.insert(intentosAcceso).values({ email: email.slice(0, 254), ip, exito, fecha: new Date() })
+  })
+}
+
+/* --------------------------------------------------------- Lecturas con IA */
+
+/** Lecturas con IA que un mismo usuario puede pedir en un minuto. */
+export const MAX_LECTURAS_MINUTO = 20
+/** Y en un día. La oficina más ocupada no se acerca; un bucle o una cuenta robada, sí. */
+export const MAX_LECTURAS_DIA = 300
+
+/**
+ * ¿Puede este usuario pedir otra lectura con IA? Si puede, la deja anotada.
+ *
+ * Cada lectura es una llamada de pago a OpenRouter, y la acción se puede llamar
+ * a mano sin pasar por el botón: sin tope, una cuenta de oficina robada (o un
+ * bucle por error) gastaría el saldo. Se anota antes de llamar a la IA, así que
+ * una lectura que luego falla también cuenta.
+ *
+ * Contar y anotar van en una transacción y bajo un cerrojo por usuario (como la
+ * referencia de los avisos): sin él, en una ráfaga en paralelo todas contarían
+ * cero antes de que ninguna anotase, y pasarían todas. La transacción no
+ * envuelve la llamada a la IA: se suelta antes.
+ */
+export async function lecturaPermitida(usuarioId: string): Promise<'permitida' | 'minuto' | 'dia'> {
+  return bd.transaction(async (tx) => {
+    await tx.execute(sql`select pg_advisory_xact_lock(hashtext(${`lecturas_ia:${usuarioId}`}))`)
+
+    const ahora = Date.now()
+    // De paso se borra lo que tenga más de un día, de cualquiera: no hace falta más.
+    await tx.delete(lecturasIa).where(lt(lecturasIa.fecha, new Date(ahora - 24 * 3_600_000)))
+
+    const delDia = await tx
+      .select({ fecha: lecturasIa.fecha })
+      .from(lecturasIa)
+      .where(eq(lecturasIa.usuarioId, usuarioId))
+    if (delDia.length >= MAX_LECTURAS_DIA) return 'dia'
+
+    const delMinuto = delDia.filter((lectura) => lectura.fecha.getTime() > ahora - 60_000)
+    if (delMinuto.length >= MAX_LECTURAS_MINUTO) return 'minuto'
+
+    await tx.insert(lecturasIa).values({ usuarioId, fecha: new Date(ahora) })
+    return 'permitida'
   })
 }

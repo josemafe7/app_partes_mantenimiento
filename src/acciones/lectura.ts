@@ -1,6 +1,7 @@
 'use server'
 
 import { catalogoParaLectura } from '@/db/consultas/clientes'
+import { lecturaPermitida } from '@/db/consultas/usuarios'
 import { SIN_PERMISO, type ResultadoAccion } from '@/lib/acciones'
 import { ajustarLectura, MAX_MENSAJE, type LecturaMensaje } from '@/lib/lecturaMensaje'
 import { ErrorLectura, iaConfigurada, leerMensajeConIA } from '@/lib/openrouter'
@@ -32,6 +33,18 @@ export async function leerMensaje(mensaje: unknown): Promise<ResultadoLectura> {
       ok: false,
       mensaje:
         'La lectura con IA aún no está activada: falta la clave de OpenRouter (OPENROUTER_API_KEY) en .env.local.',
+    }
+  }
+
+  // Cada lectura cuesta dinero y la acción se puede llamar a mano: tope por usuario.
+  const tope = await lecturaPermitida(usuario.id)
+  if (tope !== 'permitida') {
+    return {
+      ok: false,
+      mensaje:
+        tope === 'minuto'
+          ? 'Has pedido muchas lecturas seguidas. Espera un minuto y vuelve a probar.'
+          : 'Has llegado al tope de lecturas con IA de hoy. Rellena el aviso a mano o prueba mañana.',
     }
   }
 

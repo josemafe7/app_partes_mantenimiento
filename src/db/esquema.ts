@@ -211,6 +211,24 @@ export const intentosAcceso = pgTable(
   ],
 )
 
+/**
+ * Lecturas de mensajes con IA, para poner un tope de uso por usuario: cada una
+ * es una llamada de pago a OpenRouter, y sin tope una cuenta de oficina robada
+ * (o un bucle) gastaría el saldo. Solo se guarda quién y cuándo, nunca el
+ * mensaje, y solo un día.
+ */
+export const lecturasIa = pgTable(
+  'lecturas_ia',
+  {
+    id: idAutonumerico(),
+    usuarioId: uuid('usuario_id')
+      .notNull()
+      .references(() => perfiles.id, { onDelete: 'cascade' }),
+    fecha: instante('fecha').notNull().defaultNow(),
+  },
+  (tabla) => [index('idx_lecturas_ia_usuario_fecha').on(tabla.usuarioId, tabla.fecha)],
+)
+
 /* -------------------------------------------------------------------- Avisos */
 
 export const avisos = pgTable(
