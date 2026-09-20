@@ -27,6 +27,9 @@ El repositorio está en GitHub (`origin`: https://github.com/josemafe7/app_parte
 
 ## Comandos
 
+Sin `.env.local`, `pnpm dev` arranca en **modo local** (base en `.datos/`, login propio, datos de
+ejemplo): ver «El modo local», más abajo. Con `.env.local`, todo va contra Supabase como siempre.
+
 ```bash
 pnpm dev                 # http://localhost:3000 (en la app de escritorio: preview_start "avisos")
 pnpm typecheck           # tsc --noEmit
@@ -80,6 +83,35 @@ pnpm usuarios:admin <email> "<nombre>"   # crea un administrador con contraseña
   `src/db/cliente`, que está atado a un solo `DATABASE_URL`: abren sus conexiones con `postgres()`.
 - `.env.produccion.local` no se versiona (`.gitignore` lleva `.env.*`, salvo `.env.example`), y
   `respaldos/` tampoco.
+
+### El modo local
+
+La aplicación entera sin servicios de fuera, para que quien clona el repositorio la vea funcionando
+con `pnpm install` y `pnpm dev`. Cambia dos piezas y nada más:
+
+- **La base**: `src/db/baseLocal.ts` levanta PGlite en `.datos/`, le aplica las migraciones de
+  `supabase/migrations/` que le falten y la siembra con `src/db/semilla.ts`. Es lo mismo que hace
+  `tests/ayudas/base.ts`, pero en disco.
+- **El login**: `src/lib/supabase/authLocal.ts` sustituye a Supabase Auth con una cookie firmada y
+  las cuentas en `auth.cuentas_locales`. Es el planteamiento de `tests/ayudas/servidor.ts`: solo se
+  cambia lo que habla con Supabase, y `src/lib/sesion.ts`, `permisos.ts`, las consultas y las
+  acciones son las de siempre.
+
+Lo que hay que saber para no romperlo:
+
+- **Se enciende solo** (`esModoLocal()`, en `src/lib/modoLocal.ts`): sin `DATABASE_URL`, fuera de
+  `NODE_ENV=production` y fuera de Vercel y de CI. **No se añade ninguna bandera ni variable para
+  encenderlo**: una variable así se copia a Vercel por error y deja la aplicación publicada con una
+  base de juguete y un login que no comprueba nada. `tests/modoLocal.test.ts` cubre las condiciones.
+- **Los tres usuarios y su contraseña están en `modoLocal.ts` y en el README.** Si se cambian, hay
+  que cambiar los dos sitios.
+- **Lo que la aplicación le pide a Supabase Auth está en `src/lib/supabase/tipos.ts`**
+  (`ClienteAuth`, `ClienteAdmin`), y es lo que devuelven `clienteSupabase()` y `clienteAdmin()`. Si
+  hace falta otro método de Auth, se añade ahí y el compilador obliga a implementarlo también en
+  local, en vez de dejar el modo local roto sin que nadie se entere.
+- **Una migración nueva se aplica sola** en la base local que ya exista
+  (`auth.migraciones_locales` lleva la cuenta): no hace falta borrar `.datos/`.
+- `.datos/` está en `.gitignore` y borrarla es empezar de cero.
 
 ### Cambiar el esquema
 
@@ -270,6 +302,20 @@ Actions de `src/acciones/` mediante `useActionState`. El layout raíz fija
   jsonb_populate_recordset on a non-array». En `copiar-datos.ts` va `$1::text::jsonb`, que fija el
   tipo del parámetro a texto y deja la cadena pasar tal cual. La otra forma buena es pasar el
   objeto de JavaScript con `sql.json(...)`; la que no funciona es cadena + `::jsonb`.
+- **`pnpm typecheck` no es tan estricto como `pnpm build`**: `next build` vuelve a comprobar los
+  tipos con los que genera Next, y ahí `process.env.NODE_ENV` es de solo lectura. Una prueba que le
+  asigne pasa `tsc --noEmit` y rompe el despliegue (`tests/modoLocal.test.ts` escribe el entorno a
+  través de un `Record<string, string | undefined>` por esto). Si se toca algo de entorno, conviene
+  pasar `pnpm build` antes de subir.
+- **El modo local se apaga solo con `DATABASE_URL`, no con lo demás**: la guardia mira esa variable,
+  `NODE_ENV`, `VERCEL` y `CI` (`esModoLocal()`). Un código nuevo que decida según el entorno usa esa
+  función y no vuelve a leer `process.env` por su cuenta, para que la decisión siga estando en un
+  sitio. Y nada de banderas para encenderlo.
+- **La base local se prepara por detrás**: `abrirBaseLocal()` devuelve la conexión enseguida y pone
+  una barrera delante, así que la primera consulta espera a las migraciones y a la siembra. Como la
+  siembra también pasa por `bd`, va marcada con un `AsyncLocalStorage` para cruzar esa barrera; una
+  preparación nueva que use `bd` tiene que ir dentro de esa marca o se esperaría a sí misma para
+  siempre.
 - **`.env.local` es desarrollo, y tiene que seguir siéndolo**: es el archivo que lee Next con
   `pnpm dev` y el destino por defecto de todos los scripts. Apuntarlo a producción «un momento para
   ver una cosa» deja armado el siguiente `pnpm db:reset`, que borra las tablas antes de sembrarlas.

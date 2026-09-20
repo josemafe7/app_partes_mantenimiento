@@ -6,6 +6,10 @@
  * leer y escribir filas. Las migraciones no se aplican desde aquí: van por
  * separado (ver `supabase/migrations/`).
  *
+ * Si no hay `DATABASE_URL` y no es una compilación de producción, la conexión
+ * es la base local de `.datos/` (ver `baseLocal.ts` y `src/lib/modoLocal.ts`),
+ * para que el proyecto recién clonado funcione sin configurar nada.
+ *
  * Se reutiliza la misma conexión en todo el proceso (y se guarda en `globalThis`
  * para que el recargado en caliente de Next no abra un pool nuevo en cada
  * cambio). Las pruebas dejan ahí una base en memoria antes de importar nada.
@@ -14,6 +18,9 @@
 import { drizzle } from 'drizzle-orm/postgres-js'
 import postgres from 'postgres'
 
+import { esModoLocal } from '@/lib/modoLocal'
+
+import { abrirBaseLocal } from './baseLocal'
 import { cifrado } from './cifrado'
 import * as esquema from './esquema'
 
@@ -34,7 +41,7 @@ function puertoDe(url: string): string {
   }
 }
 
-function abrirConexion() {
+function abrirPostgres() {
   const url = process.env.DATABASE_URL
   if (!url) {
     throw new Error(
@@ -73,7 +80,19 @@ function abrirConexion() {
   return drizzle(cliente, { schema: esquema })
 }
 
-type Conexion = ReturnType<typeof abrirConexion>
+type Conexion = ReturnType<typeof abrirPostgres>
+
+/**
+ * La base de datos de verdad, o la de `.datos/` si no hay ninguna configurada.
+ *
+ * PGlite y postgres.js se usan igual desde Drizzle (las pruebas llevan haciendo
+ * esto mismo desde el principio), así que el resto de la aplicación no nota la
+ * diferencia y el tipo sigue siendo el de la conexión de Supabase.
+ */
+function abrirConexion(): Conexion {
+  if (esModoLocal()) return abrirBaseLocal() as unknown as Conexion
+  return abrirPostgres()
+}
 
 /**
  * Transacción sobre esta conexión, para lo que escribe en varias tablas a la vez.

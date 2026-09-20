@@ -16,5 +16,8 @@ next-env.d.ts
 
 respaldos/
 
+# La base de datos del modo local (ver README). Borrarla es empezar de cero.
+.datos/
+
 # El informe de la auditoría de seguridad es el mapa de los fallos: no se sube.
 auditoria-seguridad.md

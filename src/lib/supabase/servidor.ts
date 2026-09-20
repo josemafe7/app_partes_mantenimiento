@@ -3,7 +3,11 @@ import 'server-only'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 
+import { esModoLocal } from '@/lib/modoLocal'
+
+import { clienteLocal } from './authLocal'
 import { configSupabase, OPCIONES_COOKIE } from './config'
+import type { ClienteAuth } from './tipos'
 
 /**
  * Cliente de Supabase Auth para páginas y acciones de servidor, con la sesión
@@ -11,8 +15,13 @@ import { configSupabase, OPCIONES_COOKIE } from './config'
  *
  * Se crea uno por petición y nunca se guarda en una variable de módulo: si se
  * compartiera, la sesión de un usuario podría acabar en la petición de otro.
+ *
+ * En modo local no hay Supabase: devuelve el cliente de `authLocal.ts`, que
+ * hace lo mismo contra las cuentas de `.datos/`.
  */
-export async function clienteSupabase() {
+export async function clienteSupabase(): Promise<ClienteAuth> {
+  if (esModoLocal()) return clienteLocal()
+
   const almacen = await cookies()
   const { url, clavePublicable } = configSupabase()
 

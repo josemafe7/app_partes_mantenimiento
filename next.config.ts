@@ -27,6 +27,10 @@ const CABECERAS_DE_SEGURIDAD = [
 const nextConfig: NextConfig = {
   // No anunciar con qué está hecha la aplicación.
   poweredByHeader: false,
+  // PGlite (el Postgres del modo local) es WebAssembly y se carga en el
+  // servidor con un `import()`: que Next lo deje fuera del empaquetado en vez
+  // de intentar meter el .wasm dentro. En producción no se llega a cargar.
+  serverExternalPackages: ['@electric-sql/pglite'],
   async headers() {
     return [{ source: '/:ruta*', headers: CABECERAS_DE_SEGURIDAD }]
   },

@@ -2,7 +2,11 @@ import 'server-only'
 
 import { createClient } from '@supabase/supabase-js'
 
+import { esModoLocal } from '@/lib/modoLocal'
+
+import { adminLocal } from './authLocal'
 import { configSupabase } from './config'
+import type { ClienteAdmin } from './tipos'
 
 /**
  * Cliente de administración de Supabase Auth: crea cuentas, cambia
@@ -12,8 +16,13 @@ import { configSupabase } from './config'
  *   componente de cliente lo intentara);
  * - solo lo usan las acciones de usuarios, después de comprobar que quien las
  *   pide es administrador.
+ *
+ * En modo local no hay Supabase: devuelve el de `authLocal.ts`, que hace lo
+ * mismo contra las cuentas de `.datos/`.
  */
-export function clienteAdmin() {
+export function clienteAdmin(): ClienteAdmin {
+  if (esModoLocal()) return adminLocal()
+
   const { url } = configSupabase()
   const claveSecreta = process.env.SUPABASE_SECRET_KEY
   if (!claveSecreta) {

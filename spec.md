@@ -54,6 +54,8 @@ Sigue la convención de los proyectos hermanos (`Agentes de Voz`, `crm-dominia-a
   en el kanban)
 - Lectura con **Server Components** y escritura con **Server Actions**, sin capa REST propia. El
   layout raíz fija `dynamic = 'force-dynamic'`, así que cada visita lee la base de datos
+- **Modo local** para poder arrancar sin nada configurado: sin `DATABASE_URL`, PGlite en `.datos/`
+  sustituye a Supabase y una cookie firmada sustituye a Supabase Auth (ver «El modo local»)
 
 Scripts de `package.json`: `dev`, `build`, `start`, `lint`, `typecheck`, `test`, `db:reset` (con su
 alias `db:seed`), `db:generar`, `datos:copiar` (producción → desarrollo), `usuarios:prueba` y
@@ -267,6 +269,48 @@ nonce, `frame-ancestors 'none'`, `form-action 'self'`), y en `next.config.ts` `X
 
 ---
 
+## El modo local
+
+Para que quien clona el repositorio vea la aplicación funcionando con `pnpm install` y `pnpm dev`,
+sin Supabase, sin Docker y sin configurar nada.
+
+**Qué cambia.** Solo las dos piezas que necesitan servicios de fuera:
+
+| | Con Supabase | En modo local |
+| --- | --- | --- |
+| Base de datos | PostgreSQL en Supabase, rol `app_avisos` | PGlite (Postgres en WebAssembly) en `.datos/` |
+| Cuentas y sesión | Supabase Auth + cookie `sb-…` | `auth.cuentas_locales` + cookie propia firmada |
+| Migraciones | Se aplican con el conector o `supabase db push` | Se aplican solas al arrancar, las que falten |
+| Datos de ejemplo | `pnpm db:reset` | Se siembran solos la primera vez |
+| Usuarios | `pnpm usuarios:prueba` (contraseñas al azar) | Tres fijos, en el README |
+
+Debajo del login no cambia nada: `src/lib/sesion.ts`, `permisos.ts`, las consultas, las acciones y
+las reglas de estado son las mismas, sobre las mismas tablas y con las mismas migraciones. Es el
+planteamiento de las pruebas (`tests/ayudas/base.ts` y `tests/ayudas/servidor.ts`) llevado a la
+aplicación.
+
+**Cuándo se enciende** (`esModoLocal()`, en `src/lib/modoLocal.ts`): cuando **no** hay
+`DATABASE_URL`, **no** es una compilación de producción (`NODE_ENV`) y **no** es Vercel ni una
+integración continua. No hay ninguna bandera ni variable para encenderlo, a propósito: una variable
+así se puede copiar a Vercel por error, y la aplicación publicada se quedaría con una base de
+juguete y un login que no comprueba nada. Un despliegue sin `DATABASE_URL` falla con el error de
+siempre, que es lo que tiene que pasar. Las condiciones se prueban en `tests/modoLocal.test.ts`.
+
+**Los usuarios**, uno por rol y con la misma contraseña (`Modo-Local-2026!`):
+`admin@example.com`, `oficina@example.com` y `tecnico@example.com`. El técnico queda vinculado a la
+primera ficha libre de los datos de ejemplo (Marta Ruiz Alcántara, que tiene trabajo asignado). No
+se les pide cambiar la contraseña al entrar, porque está escrita en el README.
+
+**La sesión** es una cookie `httpOnly` firmada con HMAC-SHA256 (la clave se genera en `.datos/` la
+primera vez), que solo dice quién entró y cuándo; que ese usuario exista, siga activo y su sesión
+no esté anulada lo comprueba `usuarioActual()` contra la base en cada petición, igual que con
+Supabase. Las contraseñas se guardan con scrypt, no en claro.
+
+**Borrar `.datos/` es empezar de cero**: se vuelve a crear en el siguiente arranque, con las fechas
+de los datos de ejemplo recalculadas respecto a hoy.
+
+---
+
 ## Pantallas
 
 **Navegación**
@@ -405,10 +449,12 @@ src/
                        lectura (IA)
   componentes/         ui/ (base) + avisos/, partes/, clientes/, tecnicos/, panel/, agenda/, tablero/,
                        navegacion/, acceso/, usuarios/
-  db/                  esquema.ts, cliente.ts (conexión), consultas/ (con usuarios.ts), semilla.ts
+  db/                  esquema.ts, cliente.ts (conexión), consultas/ (con usuarios.ts), semilla.ts,
+                       baseLocal.ts (PGlite en .datos/, solo en modo local)
   lib/                 dominio.ts, permisos.ts, sesion.ts, sesiones.ts, contrasenas.ts, filtraciones.ts,
-                       seguridad.ts, supabase/ (clientes de Auth), validaciones.ts, fechas.ts, filtros.ts,
-                       lecturaMensaje.ts y openrouter.ts (lectura con IA)…
+                       seguridad.ts, supabase/ (clientes de Auth, tipos.ts y authLocal.ts),
+                       modoLocal.ts y sesionLocal.ts (modo local), validaciones.ts, fechas.ts,
+                       filtros.ts, lecturaMensaje.ts y openrouter.ts (lectura con IA)…
 supabase/migrations/   migraciones SQL aplicadas en los dos proyectos (y meta/ de drizzle-kit)
 scripts/               entornos.ts (desarrollo o producción, y las guardias) y entorno.ts (las carga);
                        seed.ts (datos de ejemplo), copiar-datos.ts (producción -> desarrollo),
@@ -419,6 +465,7 @@ tests/                 pruebas de dominio, fechas, filtros, permisos, validacion
 .env.local             claves de Supabase en desarrollo (no se versiona; plantilla en .env.example)
 .env.produccion.local  lo mismo para producción; solo lo leen los scripts con --entorno=produccion
 respaldos/             copias de producción que deja «pnpm datos:copiar» (no se versionan)
+.datos/                la base de datos del modo local (no se versiona; borrarla es empezar de cero)
 ```
 
 ---

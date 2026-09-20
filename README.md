@@ -13,11 +13,79 @@ WhatsApp o el email del cliente y la IA rellena el formulario para revisarlo ant
 
 ## Arrancar
 
-Hace falta **Node 22** o posterior y **pnpm**.
+Hace falta **Node 22** o posterior y **pnpm**. Nada más: ni Supabase, ni Docker, ni configurar
+variables de entorno.
 
 ```bash
 pnpm install
+pnpm dev
 ```
+
+Y abrir <http://localhost:3000>.
+
+La primera vez tarda unos segundos: al no encontrar ninguna base de datos configurada, la
+aplicación se monta la suya dentro de la carpeta del proyecto (`.datos/`), le aplica las
+migraciones de `supabase/migrations/` y la llena con los datos de ejemplo. Lo va contando en la
+terminal:
+
+```
+Modo local: preparando la base de datos en .datos/ (6 migraciones)…
+Modo local: datos de ejemplo cargados (8 clientes, 42 avisos, 22 partes).
+Modo local: 3 usuarios listos. Entra con admin@example.com / Modo-Local-2026!
+```
+
+### Entrar
+
+Hay un usuario de cada rol, los tres con la misma contraseña:
+
+| Usuario | Contraseña | Rol | Qué ve |
+| --- | --- | --- | --- |
+| `admin@example.com` | `Modo-Local-2026!` | Administrador | Todo: además de lo de oficina, los usuarios, los técnicos y los borrados |
+| `oficina@example.com` | `Modo-Local-2026!` | Oficina | Todos los avisos, el tablero, la agenda, los clientes y los locales |
+| `tecnico@example.com` | `Modo-Local-2026!` | Técnico | Solo sus avisos y su agenda; anota partes y mueve sus estados |
+
+Son cuentas de ejemplo, con la contraseña escrita aquí: no se les pide cambiarla al entrar. El
+técnico entra vinculado a la ficha de **Marta Ruiz Alcántara**, que tiene trabajo asignado en los
+datos de ejemplo. La tabla completa de lo que puede cada rol está en
+[Usuarios y permisos](#usuarios-y-permisos).
+
+### Empezar de cero
+
+Borrar la carpeta: la aplicación la vuelve a crear en el siguiente arranque, con las fechas de los
+datos de ejemplo recalculadas respecto a hoy y las contraseñas otra vez las de la tabla.
+
+```bash
+rm -rf .datos
+```
+
+### Qué es el «modo local»
+
+Es la aplicación entera funcionando sin servicios de fuera, para poder verla y trastear con ella
+nada más clonar el repositorio. Cambia solo dos piezas:
+
+- **La base de datos** es PGlite (PostgreSQL compilado a WebAssembly) guardado en `.datos/`, con
+  las mismas migraciones y los mismos datos de ejemplo que la de verdad.
+- **El inicio de sesión** usa una cookie propia, firmada, validada contra la tabla `perfiles`, en
+  lugar de Supabase Auth.
+
+Debajo del login no cambia nada: los permisos, las consultas, las reglas de estado y las pantallas
+son exactamente las mismas.
+
+**Se enciende solo, y solo en local.** No hay ninguna bandera ni variable para activarlo: hace
+falta que *no* haya `DATABASE_URL` y que no sea una compilación de producción. En cuanto existe
+`.env.local` con una base de datos configurada, la aplicación va contra ella; y una compilación de
+producción sin base de datos falla en lugar de arrancar con datos de mentira. La aplicación
+publicada en Vercel no puede caer aquí.
+
+`.datos/` está en `.gitignore`, igual que los archivos `.env*`.
+
+---
+
+## Arrancar contra Supabase
+
+Para trabajar contra la base de datos de verdad (y es lo que hay que hacer para tocar el esquema,
+probar el despliegue o mirar datos reales), basta con que exista `.env.local`: en cuanto hay
+`DATABASE_URL`, el modo local se apaga solo.
 
 Los datos y los usuarios viven en **Supabase** (PostgreSQL y Supabase Auth). Hay **dos proyectos**:
 «App de Partes» para producción y «App de Partes - Desarrollo» para trabajar en local (ver
@@ -44,7 +112,8 @@ pnpm dev
 
 Y abrir <http://localhost:3000>. Sin sesión, la aplicación lleva al login.
 
-**Para entrar en desarrollo** hay tres usuarios de prueba, uno por rol:
+**Para entrar en desarrollo** hay tres usuarios de prueba, uno por rol (estos sí viven en Supabase
+Auth, y son distintos de los del modo local):
 
 ```bash
 pnpm usuarios:prueba
@@ -165,6 +234,9 @@ componentes de servidor y se escriben con acciones de servidor: no hay una API p
 La base de datos es **PostgreSQL en Supabase** con **Drizzle ORM**. El servidor se conecta
 directamente a Postgres (por el pooler de Supabase), no a través de la API de datos.
 
+Sin `DATABASE_URL` configurada, esas dos piezas de fuera (la base y Supabase Auth) se sustituyen
+por las del [modo local](#qué-es-el-modo-local); el resto de la aplicación es el mismo código.
+
 ```
 src/
   app/            Las rutas y las pantallas
@@ -173,9 +245,10 @@ src/
   proxy.ts        Antes de cada petición: renueva la sesión y aplica la política de seguridad
   componentes/    ui/ (piezas base) + avisos/, partes/, clientes/, tecnicos/, usuarios/, acceso/…
   acciones/       Acciones de servidor: crear, modificar, archivar, eliminar, sesión y usuarios
-  db/             esquema.ts, cliente.ts (conexión), consultas/, semilla.ts (datos de ejemplo)
+  db/             esquema.ts, cliente.ts (conexión), consultas/, semilla.ts (datos de ejemplo),
+                  baseLocal.ts (la base de .datos/, solo en modo local)
   lib/            dominio.ts, permisos.ts, sesion.ts, validaciones.ts, fechas.ts, filtros.ts,
-                  lecturaMensaje.ts y openrouter.ts (lectura con IA)…
+                  lecturaMensaje.ts y openrouter.ts (lectura con IA), modoLocal.ts…
 supabase/
   migrations/     Las migraciones SQL aplicadas en Supabase
 tests/            Pruebas de fechas, dominio, filtros y consultas
@@ -217,9 +290,10 @@ tocar:
 
 | Comando | Qué hace |
 | --- | --- |
-| `pnpm dev` | Arranca la aplicación en <http://localhost:3000> |
-| `pnpm build` · `pnpm start` | Compila y arranca la versión de producción |
-| `pnpm db:reset` | Vacía la base de **desarrollo** y carga los datos de ejemplo (`db:seed` hace lo mismo) |
+| `pnpm dev` | Arranca la aplicación en <http://localhost:3000>. Sin `.env.local`, en [modo local](#qué-es-el-modo-local) |
+| `pnpm build` · `pnpm start` | Compila y arranca la versión de producción. Aquí **nunca** hay modo local: sin `DATABASE_URL` falla |
+| `rm -rf .datos` | Empezar de cero en modo local: se vuelve a crear en el siguiente arranque |
+| `pnpm db:reset` | Vacía la base de **desarrollo** (la de Supabase) y carga los datos de ejemplo (`db:seed` hace lo mismo) |
 | `pnpm db:generar` | Genera la migración SQL en `supabase/migrations/` tras cambiar `src/db/esquema.ts` |
 | `pnpm entornos` | Dice a qué proyecto apunta cada entorno y si conecta (no escribe nada) |
 | `pnpm datos:copiar` | Copia los datos de producción a desarrollo, con respaldo previo en `respaldos/` |
