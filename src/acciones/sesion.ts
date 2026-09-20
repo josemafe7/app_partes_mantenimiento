@@ -11,7 +11,7 @@ import { contrasenaFiltrada } from '@/lib/filtraciones'
 import { ipDelCliente, usuarioActual } from '@/lib/sesion'
 import { rutaDeVuelta } from '@/lib/sesiones'
 import { clienteSupabase } from '@/lib/supabase/servidor'
-import { erroresDe, esquemaContrasenaNueva } from '@/lib/validaciones'
+import { erroresDe, esquemaContrasenaNueva, REGEX_EMAIL } from '@/lib/validaciones'
 
 /*
  * Inicio y cierre de sesión, y cambio de contraseña.
@@ -25,6 +25,15 @@ import { erroresDe, esquemaContrasenaNueva } from '@/lib/validaciones'
 const CREDENCIALES_INCORRECTAS = 'El email o la contraseña no son correctos.'
 const DEMASIADOS_INTENTOS = `Demasiados intentos fallidos. Espera ${MINUTOS_BLOQUEO} minutos y vuelve a probar.`
 const SERVICIO_NO_DISPONIBLE = 'Ahora mismo no se puede iniciar sesión. Prueba de nuevo en unos minutos.'
+const SERVICIO_NO_DISPONIBLE_CUENTA =
+  'Ahora mismo no se puede comprobar tu contraseña. Prueba de nuevo en unos minutos.'
+/** Lo que se anota en `intentos_acceso` cuando lo tecleado en «email» no lo es. */
+const NO_ES_UN_EMAIL = '(no es un email)'
+
+/** Supabase caído, saturado o sin respuesta: no es culpa de quien escribe la contraseña. */
+function falloDelServicio(error: { status?: number } | null): boolean {
+  return Boolean(error && (error.status === undefined || error.status === 429 || error.status >= 500))
+}
 
 /** Traduce los errores de Supabase Auth que puede ver el usuario. */
 function mensajeDeAuth(codigo: string | undefined): string {
@@ -63,13 +72,20 @@ export async function iniciarSesion(
   const ip = await ipDelCliente()
   if (await accesoBloqueado(email, ip)) return { ok: false, mensaje: DEMASIADOS_INTENTOS, valores }
 
+  // Lo que no tiene forma de email no es de nadie: ni se pregunta a Supabase ni
+  // se guarda tal cual. Es un despiste corriente teclear la contraseña en la
+  // casilla del email, y quedaría escrita en `intentos_acceso`. El intento sí
+  // cuenta para el freno por IP.
+  if (!REGEX_EMAIL.test(email)) {
+    await registrarIntento(NO_ES_UN_EMAIL, ip, false)
+    return { ok: false, mensaje: CREDENCIALES_INCORRECTAS, valores }
+  }
+
   const supabase = await clienteSupabase()
   const { data, error } = await supabase.auth.signInWithPassword({ email, password: contrasena })
 
   // Un fallo de Supabase (caído, límite de peticiones) no es culpa de quien entra.
-  if (error && (error.status === undefined || error.status === 429 || error.status >= 500)) {
-    return { ok: false, mensaje: SERVICIO_NO_DISPONIBLE, valores }
-  }
+  if (falloDelServicio(error)) return { ok: false, mensaje: SERVICIO_NO_DISPONIBLE, valores }
 
   // Una cuenta de Supabase sin perfil activo en la aplicación no entra.
   const perfil = !error && data.user ? await obtenerPerfil(data.user.id) : null
@@ -145,6 +161,8 @@ export async function cambiarContrasena(
     const ip = await ipDelCliente()
     if (await accesoBloqueado(usuario.email, ip)) return { ok: false, mensaje: DEMASIADOS_INTENTOS }
     const { error } = await supabase.auth.signInWithPassword({ email: usuario.email, password: actual })
+    // Igual que al entrar: si quien falla es Supabase, no cuenta como contraseña mala.
+    if (falloDelServicio(error)) return { ok: false, mensaje: SERVICIO_NO_DISPONIBLE_CUENTA }
     if (error) {
       await registrarIntento(usuario.email, ip, false)
       return { ok: false, errores: { actual: 'La contraseña actual no es correcta' } }

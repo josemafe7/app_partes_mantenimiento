@@ -92,30 +92,43 @@ export async function administradoresActivos(): Promise<number> {
 
 /** Ventana en la que se cuentan los fallos. */
 export const MINUTOS_BLOQUEO = 15
-/** Fallos seguidos con el mismo email antes de esperar. */
+/** Fallos seguidos con el mismo email y desde la misma IP antes de esperar. */
 export const MAX_FALLOS_EMAIL = 5
+/** Fallos con el mismo email desde cualquier IP: el tope contra quien reparte el ataque. */
+export const MAX_FALLOS_EMAIL_TOTAL = 30
 /** Fallos desde la misma IP (con cualquier email) antes de esperar. */
 export const MAX_FALLOS_IP = 20
 
 /**
  * ¿Hay que hacer esperar a quien intenta entrar? Frena a quien prueba
- * contraseñas: con un email concreto (5 fallos) o muchos emails desde la misma
- * IP (20 fallos) en los últimos 15 minutos.
+ * contraseñas en los últimos 15 minutos: 5 fallos con un email desde una IP, 30
+ * con ese email desde donde sea, o 20 desde una IP con cualquier email.
+ *
+ * Los 5 se cuentan por email **y** por IP a propósito. Contados solo por email,
+ * a cualquiera que supiera el de otra persona (el del único administrador, por
+ * ejemplo) le bastaban 5 contraseñas inventadas cada cuarto de hora para que no
+ * pudiera entrar nunca, aunque escribiera la buena. Ahora quien falla desde su
+ * casa se frena a sí mismo, y para dejar fuera a otro necesita varias IP y
+ * muchos más intentos (los 30).
  */
 export async function accesoBloqueado(email: string, ip: string | null): Promise<boolean> {
   const desde = new Date(Date.now() - MINUTOS_BLOQUEO * 60_000)
-  const fallos = (condicion: SQL) =>
-    bd
+  const fallos = async (condicion: SQL | undefined): Promise<number> => {
+    const [fila] = await bd
       .select({ total: count() })
       .from(intentosAcceso)
       .where(and(condicion, eq(intentosAcceso.exito, false), gte(intentosAcceso.fecha, desde)))
+    return fila?.total ?? 0
+  }
 
-  const [porEmail] = await fallos(eq(intentosAcceso.email, email))
-  if ((porEmail?.total ?? 0) >= MAX_FALLOS_EMAIL) return true
-  if (!ip) return false
+  const delEmail = eq(intentosAcceso.email, email)
+  // Sin IP no se sabe de dónde vienen los fallos: se cuentan todos los del email.
+  if (!ip) return (await fallos(delEmail)) >= MAX_FALLOS_EMAIL
 
-  const [porIp] = await fallos(eq(intentosAcceso.ip, ip))
-  return (porIp?.total ?? 0) >= MAX_FALLOS_IP
+  const deLaIp = eq(intentosAcceso.ip, ip)
+  if ((await fallos(and(delEmail, deLaIp))) >= MAX_FALLOS_EMAIL) return true
+  if ((await fallos(delEmail)) >= MAX_FALLOS_EMAIL_TOTAL) return true
+  return (await fallos(deLaIp)) >= MAX_FALLOS_IP
 }
 
 /**

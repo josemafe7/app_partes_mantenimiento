@@ -192,8 +192,15 @@ portal de clientes (es otro proyecto).
   número y símbolo, sin contener el email ni un carácter repetido seis veces. Al elegirla se
   consulta Pwned Passwords por k-anonimato (solo viajan 5 caracteres de su huella SHA-1); si el
   servicio no responde, no se bloquea.
-- Freno de intentos: 5 fallos con un email o 20 desde una IP en 15 minutos obligan a esperar. El
-  mensaje de error es siempre el mismo, exista o no el email.
+- Freno de intentos, en 15 minutos: 5 fallos con un email **desde una misma IP**, 30 con ese email
+  desde donde sea, o 20 desde una IP con cualquier email, obligan a esperar. Los 5 van por email y
+  por IP a propósito: contados solo por email, a quien supiera el de otra persona (el del único
+  administrador) le bastaban 5 contraseñas inventadas cada cuarto de hora para dejarla fuera. Los 30
+  son el tope contra quien reparte el ataque entre varias IP (lo encarece, no lo impide). El mensaje
+  de error es siempre el mismo, exista o no el email. Lo tecleado en «email» que no tiene forma de
+  email no se pregunta a Supabase ni se guarda (se anota «(no es un email)»): es un despiste
+  corriente escribir ahí la contraseña. Un fallo de Supabase (caído, saturado) no cuenta como
+  intento, ni al entrar ni al comprobar la contraseña actual en «Mi cuenta».
 - Recuperar la contraseña la hace el administrador (restablecer). No hay correo: el SMTP de serie
   de Supabase solo envía a los miembros del equipo del proyecto.
 - Un usuario no se borra, se desactiva (y se bloquea en Supabase Auth). Nadie puede quitarse su

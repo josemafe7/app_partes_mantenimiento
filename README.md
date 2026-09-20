@@ -123,7 +123,9 @@ Copia los datos de producción a desarrollo (y deja antes un respaldo en `respal
   que se enseña una sola vez y se da en mano. El usuario la cambia al entrar.
 - **Contraseñas**: al menos 12 caracteres, con minúsculas, mayúsculas, números y algún símbolo, sin
   contener el email. Al elegirla se comprueba que no aparezca en filtraciones de datos conocidas.
-- **Tras 5 intentos fallidos** con un email (o 20 desde un mismo sitio), hay que esperar 15 minutos.
+- **Tras 5 intentos fallidos** con un email desde un mismo sitio (o 20 desde ese sitio con cualquier
+  email, o 30 con ese email desde donde sea), hay que esperar 15 minutos. Fallar con el email de otra
+  persona no la deja fuera a ella.
 - **Un usuario no se borra, se desactiva**: no puede entrar y sus sesiones se cierran al momento,
   pero su nombre se conserva en la cronología de los avisos, que dice quién hizo cada cambio.
 - **Restablecer la contraseña** de alguien cierra todas sus sesiones abiertas.

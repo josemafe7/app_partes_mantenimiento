@@ -428,6 +428,40 @@ describe('inicio de sesión', () => {
     assert.equal(await redireccion(sesion.cerrarSesion()), '/login')
     assert.deepEqual(llamadasA('signOut'), [{ scope: 'local' }])
   })
+
+  it('cinco fallos con el email de otro, desde otra IP, no le dejan fuera', async () => {
+    // Antes bastaba saber el email del administrador para bloquearle cada cuarto de hora.
+    const victima = await otraPersona()
+    servidor.ip = '192.0.2.50'
+    for (let i = 0; i < 5; i++) await entrar(victima.email, 'Inventada-2026')
+    assert.match((await entrar(victima.email, 'Inventada-2026')).mensaje ?? '', /Demasiados intentos fallidos/)
+
+    servidor.ip = '192.0.2.51'
+    await redireccion(entrar(victima.email, CONTRASENA))
+  })
+
+  it('pero treinta fallos repartidos entre varias IP sí frenan ese email, venga de donde venga', async () => {
+    const persona = await otraPersona()
+    for (let casa = 0; casa < 6; casa++) {
+      servidor.ip = `192.0.2.${100 + casa}`
+      for (let i = 0; i < 5; i++) await entrar(persona.email, 'Inventada-2026')
+    }
+    assert.equal((await intentos(persona.email)).filter((intento) => !intento.exito).length, 30)
+
+    servidor.ip = '192.0.2.200'
+    assert.match((await entrar(persona.email, CONTRASENA)).mensaje ?? '', /Demasiados intentos fallidos/)
+  })
+
+  it('lo que no es un email no se pregunta a Supabase ni se guarda tal cual', async () => {
+    // El despiste de teclear la contraseña en la casilla del email.
+    const resultado = await entrar('Mi-Contrasena-Secreta-2026', 'loquesea')
+    assert.equal(resultado.mensaje, CREDENCIALES_INCORRECTAS)
+    assert.equal(llamadasA('signInWithPassword').length, 0)
+
+    assert.equal((await intentos('mi-contrasena-secreta-2026')).length, 0, 'ha guardado lo tecleado')
+    const anotados = await intentos('(no es un email)')
+    assert.ok(anotados.some((intento) => intento.ip === servidor.ip && !intento.exito), 'no cuenta para el freno por IP')
+  })
 })
 
 /* ---------------------------------------------------- Cambiar contraseña */
@@ -479,5 +513,24 @@ describe('cambiar la contraseña', () => {
 
   it('sin sesión, al login', async () => {
     assert.equal(await redireccion(cambiar({ nueva: NUEVA, repetir: NUEVA })), '/login?sesion=cerrada')
+  })
+
+  it('si Supabase falla al comprobar la actual, no cuenta como contraseña mal escrita', async (t) => {
+    const persona = await otraPersona()
+    entrarComo(persona)
+    let status: number | undefined
+    t.mock.method(clienteSupabase.auth, 'signInWithPassword', async () => ({
+      data: { user: null, session: null },
+      error: { status, code: 'unexpected_failure', message: '' },
+    }))
+
+    for (status of [500, 429, undefined]) {
+      const resultado = await cambiar({ actual: CONTRASENA, nueva: NUEVA, repetir: NUEVA })
+      assert.match(resultado.mensaje ?? '', /Ahora mismo no se puede comprobar tu contraseña/, `status ${status}`)
+      assert.equal(resultado.errores, undefined)
+    }
+    const fallos = await bd.select().from(esquema.intentosAcceso).where(eq(esquema.intentosAcceso.email, persona.email))
+    assert.equal(fallos.length, 0, 'ha sumado fallos que no eran suyos')
+    assert.equal(llamadasA('updateUser').length, 0)
   })
 })

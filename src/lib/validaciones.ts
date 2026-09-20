@@ -14,7 +14,8 @@ import { esFechaISO } from './fechas'
 
 /* -------------------------------------------------------------- Auxiliares */
 
-const REGEX_EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/
+/** La forma de un email. La usa también el inicio de sesión, para no anotar lo que no lo es. */
+export const REGEX_EMAIL = /^[^\s@]+@[^\s@]+\.[^\s@]{2,}$/
 const REGEX_HORA = /^([01]\d|2[0-3]):[0-5]\d$/
 
 function obligatorio(mensaje: string, max = 160) {
