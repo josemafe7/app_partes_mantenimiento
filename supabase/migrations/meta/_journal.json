@@ -29,6 +29,13 @@
       "when": 1789838916551,
       "tag": "20260919172946_acceso_usuarios",
       "breakpoints": true
+    },
+    {
+      "idx": 4,
+      "version": "7",
+      "when": 1789889273517,
+      "tag": "20260920072846_privilegios_por_defecto",
+      "breakpoints": true
     }
   ]
 }
