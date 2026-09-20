@@ -94,6 +94,8 @@ aparte (la aplicación no puede cambiar el esquema).
   quien no es técnico
 - **intentos_acceso**: `email`, `ip`, `exito`, `fecha`. Los intentos de inicio de sesión de las
   últimas 24 horas, para frenar a quien prueba contraseñas
+- **lecturas_ia**: `usuarioId` (cascade) y `fecha`. Quién ha pedido una lectura con IA y cuándo, en
+  las últimas 24 horas, para el tope de uso por usuario. Nunca el mensaje
 - **partes** lleva además `creadoPor` (set null): quién lo anotó, que puede no ser el técnico
 
 **Tipos de fecha**
@@ -241,8 +243,8 @@ nonce, `frame-ancestors 'none'`, `form-action 'self'`), y en `next.config.ts` `X
   como mucho **2** (`max: 2`, `idle_timeout: 10`). Con 10 por proceso se agotaron el 20-09-2026,
   nada más publicar en Vercel, y todas las pantallas con datos fallaron.
 - **Rol `app_avisos`**: la aplicación entra con un rol propio que solo lee y escribe filas de sus
-  tablas, sin poder crear, modificar ni borrar tablas. En `perfiles` no puede borrar, y en
-  `intentos_acceso` no puede modificar. Su contraseña no está en las migraciones: se generó en
+  tablas, sin poder crear, modificar ni borrar tablas. En `perfiles` no puede borrar; en
+  `intentos_acceso`, `lecturas_ia` y `movimientos` no puede modificar (la cronología solo crece). Su contraseña no está en las migraciones: se generó en
   local y en Supabase solo se guardó su huella SCRAM.
 - **API de datos cerrada**: la aplicación no usa PostgREST; `supabase-js` solo se usa para Auth.
   `anon` y `authenticated` no tienen permisos sobre las tablas y el RLS está activado en todas, con
@@ -345,8 +347,9 @@ registra el aviso como siempre.
 
 - **Qué rellena**: cliente, local, título, descripción, tipo de trabajo, prioridad, canal de entrada
   y quién avisa. No toca el técnico, el estado ni las fechas.
-- **No guarda nada.** La acción `leerMensaje` (`src/acciones/lectura.ts`) no escribe en la base:
-  devuelve una propuesta y `FormularioAviso` la escribe en sus campos. El aviso se crea con el botón
+- **No guarda nada del mensaje ni de la propuesta.** La acción `leerMensaje`
+  (`src/acciones/lectura.ts`) devuelve una propuesta y `FormularioAviso` la escribe en sus campos.
+  Lo único que anota en la base es quién ha pedido la lectura y cuándo (`lecturas_ia`), para el tope. El aviso se crea con el botón
   «Registrar aviso» y la acción `crearAviso`, con todas sus validaciones.
 - **Sin inventar el sitio**: si la IA no tiene claro el cliente o el local, lo deja en blanco (y lo
   que hubiera elegido antes también se vacía) y explica qué le falta («El Horno de Lucía tiene tres
@@ -357,6 +360,12 @@ registra el aviso como siempre.
 - **Dudas**: lo que convenga revisar (una prioridad o un canal dudosos) sale en un aviso en coral
   bajo el botón.
 - **Quién**: los que pueden crear avisos (`gestionarAvisos`: administrador y oficina).
+- **Tope de uso**: 20 lecturas por minuto y 300 por día **por usuario** (`lecturaPermitida`, en
+  `src/db/consultas/usuarios.ts`). Cada lectura es una llamada de pago y la acción se puede llamar a
+  mano sin pasar por el botón: sin tope, una cuenta de oficina robada o un bucle gastaban el saldo.
+  Se cuenta y se anota en una transacción bajo un cerrojo por usuario (`pg_advisory_xact_lock`), para
+  que una ráfaga en paralelo no se cuele, y antes de llamar a la IA: una lectura que falla también
+  cuenta. La otra red es el límite de gasto de la clave en OpenRouter.
 - **Cómo**: una sola llamada a la API de chat de OpenRouter desde el servidor
   (`src/lib/openrouter.ts`, `server-only`, con `fetch` y sin SDK). El modelo sale de
   `OPENROUTER_MODELO` y, si no está, es `google/gemini-3-flash-preview` (Gemini 3 Flash, elegido
