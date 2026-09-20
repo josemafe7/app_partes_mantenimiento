@@ -530,3 +530,72 @@ describe('ids que llegan de la URL', () => {
     assert.equal(await avisos.obtenerAviso(2_147_483_647), null)
   })
 })
+
+describe('permisos del rol de la aplicación (app_avisos)', () => {
+  // Las pruebas corren como superusuario de PGlite, que se salta permisos y RLS:
+  // sin esto, un UPDATE nuevo sobre la cronología pasaría todas las pruebas y
+  // fallaría en Supabase con «permission denied». Aquí se entra con el rol de
+  // verdad, el de las migraciones, y se comprueba lo que puede y lo que no.
+  async function comoLaAplicacion<T>(tarea: () => Promise<T>): Promise<T> {
+    await m.bd.execute(sql`set role app_avisos`)
+    try {
+      return await tarea()
+    } finally {
+      await m.bd.execute(sql`reset role`)
+    }
+  }
+
+  const denegado = /permission denied/i
+
+  it('la cronología solo crece: puede añadir y leer movimientos, pero no modificarlos', async () => {
+    const { id: avisoId, estado } = todosLosAvisos[0]
+    await comoLaAplicacion(async () => {
+      const [movimiento] = await m.bd
+        .insert(m.esquema.movimientos)
+        .values({ avisoId, estadoAnterior: estado, estadoNuevo: estado, nota: 'Prueba de permisos', fecha: new Date() })
+        .returning({ id: m.esquema.movimientos.id })
+      assert.ok(movimiento.id > 0)
+
+      await assert.rejects(
+        m.bd.execute(sql`update movimientos set nota = 'reescrita' where id = ${movimiento.id}`),
+        (error: Error) => denegado.test(String(error.cause ?? error.message)),
+        'app_avisos ha podido reescribir la cronología',
+      )
+      await m.bd.execute(sql`delete from movimientos where id = ${movimiento.id}`)
+    })
+  })
+
+  it('en lecturas_ia anota, cuenta y borra, pero no corrige', async () => {
+    // El perfil cuelga de su cuenta en auth.users (que en las pruebas solo tiene el id).
+    const id = '00000000-0000-4000-8000-0000000000aa'
+    await m.bd.execute(sql`insert into auth.users (id) values (${id})`)
+    const [perfil] = await m.bd
+      .insert(m.esquema.perfiles)
+      .values({ id, nombre: 'Permisos', email: 'permisos@empresa.es', rol: 'oficina' })
+      .returning({ id: m.esquema.perfiles.id })
+    try {
+      await comoLaAplicacion(async () => {
+        await m.bd.insert(m.esquema.lecturasIa).values({ usuarioId: perfil.id })
+        assert.equal((await m.bd.select().from(m.esquema.lecturasIa)).length, 1)
+        await assert.rejects(
+          m.bd.execute(sql`update lecturas_ia set fecha = now()`),
+          (error: Error) => denegado.test(String(error.cause ?? error.message)),
+        )
+        await m.bd.execute(sql`delete from lecturas_ia`)
+      })
+    } finally {
+      // Borrar la cuenta se lleva el perfil (y sus lecturas) en cascada.
+      await m.bd.execute(sql`delete from auth.users where id = ${perfil.id}`)
+    }
+  })
+
+  it('los usuarios no se borran, y las tablas no se pueden cambiar', async () => {
+    await comoLaAplicacion(async () => {
+      for (const sentencia of [sql`delete from perfiles`, sql`drop table movimientos`, sql`alter table avisos add column x int`]) {
+        await assert.rejects(m.bd.execute(sentencia), (error: Error) =>
+          /permission denied|must be owner/i.test(String(error.cause ?? error.message)),
+        )
+      }
+    })
+  })
+})

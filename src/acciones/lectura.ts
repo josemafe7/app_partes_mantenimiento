@@ -13,8 +13,9 @@ export type ResultadoLectura = ResultadoAccion & { lectura?: LecturaMensaje }
 /**
  * Lee con IA el mensaje de un cliente y propone los datos del aviso.
  *
- * No escribe nada en la base: devuelve la propuesta y el formulario la pinta
- * para que la oficina la revise y registre el aviso como siempre. No va con
+ * No guarda nada del mensaje ni de la propuesta: la devuelve y el formulario la
+ * pinta para que la oficina la revise y registre el aviso como siempre. Lo único
+ * que anota es quién pide la lectura y cuándo (`lecturas_ia`), para el tope de uso. No va con
  * `useActionState` porque no es un envío de formulario: si lo fuera, React
  * vaciaría el recuadro del mensaje al terminar.
  */
@@ -44,7 +45,7 @@ export async function leerMensaje(mensaje: unknown): Promise<ResultadoLectura> {
       mensaje:
         tope === 'minuto'
           ? 'Has pedido muchas lecturas seguidas. Espera un minuto y vuelve a probar.'
-          : 'Has llegado al tope de lecturas con IA de hoy. Rellena el aviso a mano o prueba mañana.',
+          : 'Has llegado al tope de lecturas con IA de hoy (300 en 24 horas). Rellena el aviso a mano o prueba más tarde.',
     }
   }
 

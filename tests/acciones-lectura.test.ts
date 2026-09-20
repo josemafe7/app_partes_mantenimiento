@@ -6,7 +6,8 @@
  * Lo que se comprueba: quién puede usarla, que la petición lleva lo que protege
  * los datos de los clientes (`data_collection: 'deny'`, `require_parameters`),
  * que lo que devuelve la IA no llega al formulario sin contrastarlo, que los
- * errores se explican y que no se guarda nada en la base.
+ * errores se explican, que no se guarda nada del mensaje y el tope de uso por
+ * usuario (lo único que se anota: quién pide cada lectura y cuándo).
  */
 
 import assert from 'node:assert/strict'
@@ -48,9 +49,12 @@ after(() => {
   }
 })
 
-beforeEach(() => {
+beforeEach(async () => {
   reiniciar()
   entrarComo(fichas.usuarios.oficina)
+  // Cada lectura queda anotada para el tope de uso (20 por minuto): sin vaciarlas,
+  // las de una prueba frenarían a las siguientes.
+  await bd.delete(esquema.lecturasIa)
 })
 
 /* ---------------------------------------------------------------- Ayudas */
@@ -245,9 +249,6 @@ describe('lectura de mensajes con IA', () => {
 describe('tope de uso de la lectura con IA', () => {
   // Cada lectura es una llamada de pago, y la acción se puede llamar a mano sin
   // pasar por el botón: sin tope, una cuenta robada (o un bucle) gasta el saldo.
-  beforeEach(async () => {
-    await bd.delete(esquema.lecturasIa)
-  })
 
   async function anotadas(usuarioId: string): Promise<number> {
     const filas = await bd.select().from(esquema.lecturasIa).where(eq(esquema.lecturasIa.usuarioId, usuarioId))
@@ -307,6 +308,10 @@ describe('tope de uso de la lectura con IA', () => {
     assert.equal(await anotadas(fichas.usuarios.oficina.id), 1, 'no ha borrado las de más de un día')
   })
 
+  // Ojo: PGlite atiende las transacciones de una en una, así que esta prueba
+  // vigila el recuento, no el cerrojo (pasaría igual sin él). El cerrojo se probó
+  // el 20-09-2026 contra el Postgres de desarrollo, con el rol app_avisos y dos
+  // conexiones: de 30 peticiones a la vez pasaron 20.
   it('una ráfaga a la vez no se cuela: pasan 20 y ni una más', async (t) => {
     const ia = simularOpenRouter(t)
     const resultados = await Promise.all(Array.from({ length: 30 }, () => lectura.leerMensaje(MENSAJE)))
@@ -315,6 +320,7 @@ describe('tope de uso de la lectura con IA', () => {
   })
 
   it('una lectura que falla también cuenta: el tope protege el gasto, no el acierto', async (t) => {
+    t.mock.method(console, 'error', () => {})
     const ia = simularOpenRouter(t)
     ia.estado = 500
     assert.equal((await lectura.leerMensaje(MENSAJE)).ok, false)

@@ -13,6 +13,15 @@
 -- más, y lo que necesite la aplicación se le concede a `app_avisos` a propósito.
 --
 -- No cambia nada de lo que ya existe: solo lo que se cree a partir de ahora.
+--
+-- Dos límites, para no fiarse de más:
+-- - Las FUNCIONES siguen naciendo ejecutables por cualquiera. Aquí solo se quita
+--   la concesión expresa a `anon` y `authenticated`; el permiso de ejecutar que
+--   Postgres da a PUBLIC es un valor global, y uno por esquema no lo puede
+--   quitar. Hoy no hay ninguna función en `public`. La que se cree lleva su
+--   `revoke execute on function … from public` a mano (ver AGENTS.md).
+-- - Lo que cree `supabase_admin` (no las migraciones) sigue naciendo abierto:
+--   `postgres` no puede cambiar los valores por defecto de otro rol.
 
 alter default privileges for role postgres in schema public
   revoke all on tables from anon, authenticated;

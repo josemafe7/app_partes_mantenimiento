@@ -24,10 +24,13 @@ Los datos y los usuarios viven en **Supabase** (PostgreSQL y Supabase Auth). Hay
 [Los dos entornos](#los-dos-entornos)). En local se trabaja siempre contra el de desarrollo.
 
 La aplicación lee sus claves de `.env.local`, que no se sube al repositorio. Si no lo tienes, copia
-`.env.example` como `.env.local` (ya trae los valores del proyecto de desarrollo) y rellena las dos
-claves secretas:
+`.env.example` como `.env.local` (trae la forma de los valores del proyecto de desarrollo, pero
+ninguna clave) y rellena las que faltan:
 
 - `DATABASE_URL`: la contraseña del rol `app_avisos` (más abajo se explica cómo cambiarla).
+- `SUPABASE_PUBLISHABLE_KEY`: la clave publicable del proyecto, en **Project Settings → API Keys**.
+  No es secreta, pero tampoco se versiona: con ella y la URL se puede llamar al inicio de sesión de
+  Supabase sin pasar por el freno de intentos de la aplicación.
 - `SUPABASE_SECRET_KEY`: la clave secreta del proyecto. Se crea en Supabase, en **Project Settings →
   API Keys → Secret keys**. Da acceso total al proyecto: no se comparte ni se pega en ningún chat.
 - `OPENROUTER_API_KEY` (opcional): la clave de OpenRouter para leer los mensajes con IA. Se crea en
@@ -124,8 +127,9 @@ Copia los datos de producción a desarrollo (y deja antes un respaldo en `respal
 - **Contraseñas**: al menos 12 caracteres, con minúsculas, mayúsculas, números y algún símbolo, sin
   contener el email. Al elegirla se comprueba que no aparezca en filtraciones de datos conocidas.
 - **Tras 5 intentos fallidos** con un email desde un mismo sitio (o 20 desde ese sitio con cualquier
-  email, o 30 con ese email desde donde sea), hay que esperar 15 minutos. Fallar con el email de otra
-  persona no la deja fuera a ella.
+  email, o 30 con ese email desde donde sea), hay que esperar 15 minutos. Fallar unas pocas veces
+  con el email de otra persona desde otro sitio ya no la deja fuera: harían falta 30 fallos
+  repartidos entre varios sitios.
 - **Un usuario no se borra, se desactiva**: no puede entrar y sus sesiones se cierran al momento,
   pero su nombre se conserva en la cronología de los avisos, que dice quién hizo cada cambio.
 - **Restablecer la contraseña** de alguien cierra todas sus sesiones abiertas.

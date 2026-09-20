@@ -91,6 +91,11 @@ terminada hasta que está aplicada en los dos**, primero en desarrollo.
    y su política. Drizzle no genera permisos (`pnpm db:generar --custom --name <nombre>` crea una
    migración vacía para escribirlos). Con el login, cada usuario tiene un token `authenticated`:
    una tabla que se le abra a ese rol queda al alcance de cualquier usuario por la API de datos.
+   Desde `…_privilegios_por_defecto.sql` las tablas y secuencias que crea una migración ya nacen
+   sin permisos para `anon` ni `authenticated`, pero el `revoke` se sigue escribiendo (no cuesta
+   y no depende de ese valor por defecto). Las **funciones** no: Postgres da `execute` a PUBLIC
+   como valor global, así que una función nueva lleva su `revoke execute on function … from
+   public` y el `grant` a quien la necesite. Hoy no hay ninguna en `public`.
 3. Aplicarla **en desarrollo** (`ujftpokeijrivicdwpnx`) con el conector (`apply_migration`, mismo
    nombre) o `supabase db push`. El rol de la app no puede cambiar el esquema, así que nunca se
    aplica desde la aplicación.
@@ -179,7 +184,10 @@ Actions de `src/acciones/` mediante `useActionState`. El layout raíz fija
   respuesta y `ajustarLectura`, que descarta ids inexistentes o un local de otro cliente) está en
   `src/lib/lecturaMensaje.ts` y se prueba en `tests/lecturaMensaje.test.ts`. **La IA no escribe en
   la base**: `FormularioAviso` rellena sus campos y el aviso se guarda con `crearAviso` como
-  siempre. Lo que no tiene claro (cliente, local) llega en blanco, y el formulario lo deja en blanco.
+  siempre. Lo único que se anota es quién pide cada lectura y cuándo (`lecturas_ia`): antes de
+  llamar a OpenRouter, la acción pasa por `lecturaPermitida` (`src/db/consultas/usuarios.ts`: 20
+  por minuto y 300 en 24 horas por usuario, contadas bajo un cerrojo por usuario). **Cualquier
+  ruta nueva que llame a `leerMensajeConIA`, o a otra API de pago, pasa antes por un tope así.** Lo que no tiene claro (cliente, local) llega en blanco, y el formulario lo deja en blanco.
 - **Contrato de las acciones** (`src/lib/acciones.ts`): devuelven `ResultadoAccion`
   `{ ok, mensaje, errores, valores }` o redirigen. `valores` devuelve lo enviado para volver a
   pintar el formulario cuando falla la validación (zod, en `src/lib/validaciones.ts`).
@@ -315,6 +323,11 @@ Actions de `src/acciones/` mediante `useActionState`. El layout raíz fija
 - **Rejillas en el móvil**: las rejillas que solo definen columnas a partir de `lg:` llevan
   `grid-cols-1`. Sin columnas explícitas, un texto con `truncate` ensancha la pista y la página
   se sale de la pantalla en el móvil.
+- **Las pruebas corren como superusuario**, que se salta permisos y RLS: un `UPDATE` nuevo sobre
+  `movimientos` (o cualquier cosa que `app_avisos` no tenga concedida) pasaría todas las pruebas y
+  fallaría en Supabase con «permission denied». Lo que el rol puede y no puede se comprueba en
+  «permisos del rol de la aplicación» de `tests/consultas.test.ts`, con `set role app_avisos`: si
+  una migración cambia un `grant`, su caso va ahí.
 - **Pruebas con PGlite**: `usarBaseEnMemoria()` (`tests/ayudas/base.ts`) deja la base en memoria
   en `globalThis.__bdAvisos` *antes* de importar los módulos de `src/db/`, que usan esa conexión en
   lugar de abrir otra. Crea antes los roles `anon` y `authenticated` y una tabla `auth.users` con

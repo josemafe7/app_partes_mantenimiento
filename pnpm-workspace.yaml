@@ -10,8 +10,11 @@ allowBuilds:
 
 # Al añadir o actualizar paquetes, pnpm no coge versiones publicadas hace menos
 # de 7 días (en minutos): las versiones envenenadas de un paquete legítimo suelen
-# retirarse en horas. No cambia nada de lo instalado ni toca el lockfile, y no
-# afecta a Vercel (instala lo que fija pnpm-lock.yaml).
+# retirarse en horas. No cambia nada de lo instalado ni toca el lockfile. Con
+# pnpm 10, que es lo que usa Vercel, no afecta al despliegue: instala lo que fija
+# pnpm-lock.yaml. Desde pnpm 11 el lockfile también se verifica al instalar: si
+# se pasa a pnpm 11, un parche urgente necesitará además minimumReleaseAgeExclude
+# para ese paquete (o trustLockfile: true) para no tumbar el despliegue.
 # Para un parche de seguridad urgente (de next, por ejemplo), solo en ese comando:
 #   pnpm update next --config.minimumReleaseAge=0
 minimumReleaseAge: 10080
