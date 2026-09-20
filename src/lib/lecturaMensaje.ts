@@ -256,7 +256,9 @@ export function ajustarLectura(salida: SalidaLectura, catalogo: readonly Cliente
     },
     cliente: cliente?.nombre ?? null,
     local: local?.nombre ?? null,
-    identificacion: salida.identificacion.trim(),
-    dudas: [...dudas, ...salida.dudas.map((duda) => duda.trim()).filter(Boolean)].slice(0, 6),
+    // También con tope: se pintan con la voz de la aplicación («Para revisar»),
+    // y lo que escribe la IA puede venir dictado por el mensaje del cliente.
+    identificacion: recortar(salida.identificacion, 300),
+    dudas: [...dudas, ...salida.dudas.map((duda) => recortar(duda, 200)).filter(Boolean)].slice(0, 6),
   }
 }

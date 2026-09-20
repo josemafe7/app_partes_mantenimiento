@@ -184,6 +184,18 @@ describe('ajustarLectura', () => {
     assert.equal(propuesta.descripcion, 'Hola')
   })
 
+  it('también recorta lo que la IA escribe para la oficina: la identificación y cada duda', () => {
+    const { identificacion, dudas } = ajustarLectura(
+      salida({ identificacion: 'y'.repeat(5000), dudas: ['z'.repeat(5000), 'Comprueba la prioridad.'] }),
+      CATALOGO,
+    )
+    assert.equal(identificacion.length, 300)
+    assert.deepEqual(
+      dudas.map((duda) => duda.length),
+      [200, 'Comprueba la prioridad.'.length],
+    )
+  })
+
   it('pone primero sus propias dudas y descarta las vacías', () => {
     const { dudas } = ajustarLectura(
       salida({ clienteId: 99, localId: null, dudas: ['', '  Comprueba la prioridad. '] }),
