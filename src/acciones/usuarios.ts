@@ -38,6 +38,15 @@ function refrescar(id?: string) {
   if (id) revalidatePath(`/usuarios/${id}`)
 }
 
+/**
+ * Rastro de los cambios de permisos en los registros del servidor (en Vercel,
+ * «Logs»): qué se hizo, quién y a quién. Solo identificadores: ni emails, ni
+ * nombres, ni por supuesto contraseñas.
+ */
+function anotar(accion: string, autor: Usuario, afectadoId: string, detalle = '') {
+  console.info(`[usuarios] ${accion}: por=${autor.id} a=${afectadoId}${detalle ? ` ${detalle}` : ''}`)
+}
+
 async function administrador(): Promise<Usuario | null> {
   const usuario = await usuarioDeLaAccion()
   return puede(usuario, 'gestionarUsuarios') ? usuario : null
@@ -58,7 +67,8 @@ export async function crearUsuario(
   _previo: ResultadoAccion = ESTADO_INICIAL,
   formData: FormData,
 ): Promise<ResultadoAccion> {
-  if (!(await administrador())) return SIN_PERMISO
+  const yo = await administrador()
+  if (!yo) return SIN_PERMISO
 
   const analisis = esquemaUsuarioNuevo.safeParse({
     nombre: texto(formData, 'nombre'),
@@ -111,6 +121,7 @@ export async function crearUsuario(
     throw errorPerfil
   }
 
+  anotar('usuario creado', yo, data.user.id, `rol=${datos.rol}`)
   refrescar()
   return {
     ok: true,
@@ -159,6 +170,7 @@ export async function actualizarUsuario(
     .set({ ...datos, actualizadoEn: new Date() })
     .where(eq(perfiles.id, usuario.id))
 
+  if (datos.rol !== usuario.rol) anotar('rol cambiado', yo, usuario.id, `de=${usuario.rol} a=${datos.rol}`)
   refrescar(usuario.id)
   redirect('/usuarios')
 }
@@ -191,6 +203,7 @@ export async function restablecerContrasena(
     .set({ debeCambiarContrasena: true, sesionesValidasDesde: new Date(), actualizadoEn: new Date() })
     .where(eq(perfiles.id, usuario.id))
 
+  anotar('contraseña restablecida', yo, usuario.id)
   refrescar(usuario.id)
   return { ok: true, mensaje: `Nueva contraseña temporal para ${usuario.nombre}.`, secreto: contrasena }
 }
@@ -235,6 +248,7 @@ export async function alternarActivoUsuario(
       .where(eq(perfiles.id, usuario.id))
   }
 
+  anotar(usuario.activo ? 'usuario desactivado' : 'usuario reactivado', yo, usuario.id)
   refrescar(usuario.id)
   return { ok: true, mensaje: usuario.activo ? 'Usuario desactivado.' : 'Usuario reactivado.' }
 }
