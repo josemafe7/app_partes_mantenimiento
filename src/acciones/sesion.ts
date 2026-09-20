@@ -30,9 +30,14 @@ const SERVICIO_NO_DISPONIBLE_CUENTA =
 /** Lo que se anota en `intentos_acceso` cuando lo tecleado en «email» no lo es. */
 const NO_ES_UN_EMAIL = '(no es un email)'
 
-/** Supabase caído, saturado o sin respuesta: no es culpa de quien escribe la contraseña. */
+/**
+ * Supabase caído, saturado o sin respuesta: no es culpa de quien escribe la
+ * contraseña. Cuando la petición ni siquiera llega (sin red, DNS, tiempo
+ * agotado), auth-js devuelve un `AuthRetryableFetchError` con `status: 0`, no
+ * sin `status`: por eso vale cualquier status «vacío».
+ */
 function falloDelServicio(error: { status?: number } | null): boolean {
-  return Boolean(error && (error.status === undefined || error.status === 429 || error.status >= 500))
+  return Boolean(error && (!error.status || error.status === 429 || error.status >= 500))
 }
 
 /** Traduce los errores de Supabase Auth que puede ver el usuario. */

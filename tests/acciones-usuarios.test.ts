@@ -429,6 +429,20 @@ describe('inicio de sesión', () => {
     assert.deepEqual(llamadasA('signOut'), [{ scope: 'local' }])
   })
 
+  it('sin red con Supabase (status 0) tampoco cuenta como intento', async (t) => {
+    // Cuando la petición ni llega, auth-js devuelve AuthRetryableFetchError con status 0.
+    const persona = await otraPersona()
+    t.mock.method(clienteSupabase.auth, 'signInWithPassword', async () => ({
+      data: { user: null, session: null },
+      error: { status: 0, code: undefined, message: 'fetch failed' },
+    }))
+    for (let i = 0; i < 6; i++) {
+      const resultado = await entrar(persona.email, CONTRASENA)
+      assert.match(resultado.mensaje ?? '', /Ahora mismo no se puede iniciar sesión/, `intento ${i + 1}`)
+    }
+    assert.equal((await intentos(persona.email)).length, 0, 'un corte de red le ha dejado bloqueado')
+  })
+
   it('cinco fallos con el email de otro, desde otra IP, no le dejan fuera', async () => {
     // Antes bastaba saber el email del administrador para bloquearle cada cuarto de hora.
     const victima = await otraPersona()
@@ -524,7 +538,8 @@ describe('cambiar la contraseña', () => {
       error: { status, code: 'unexpected_failure', message: '' },
     }))
 
-    for (status of [500, 429, undefined]) {
+    // 0 es lo que devuelve auth-js cuando la petición ni llega (sin red).
+    for (status of [500, 429, 0, undefined]) {
       const resultado = await cambiar({ actual: CONTRASENA, nueva: NUEVA, repetir: NUEVA })
       assert.match(resultado.mensaje ?? '', /Ahora mismo no se puede comprobar tu contraseña/, `status ${status}`)
       assert.equal(resultado.errores, undefined)
