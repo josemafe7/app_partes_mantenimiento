@@ -5,9 +5,11 @@ build/
 next-env.d.ts
 *.tsbuildinfo
 
+# Ningún archivo de entorno se sube, se llame como se llame (.env.produccion,
+# .env.vercel…). Solo la plantilla, que no lleva valores reales.
 .env
-.env.local
-.env*.local
+.env.*
+!.env.example
 .DS_Store
 
 *.log
