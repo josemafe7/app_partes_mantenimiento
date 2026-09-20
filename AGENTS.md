@@ -341,3 +341,23 @@ Actions de `src/acciones/` mediante `useActionState`. El layout raíz fija
   se lanza con `node --conditions=react-server --import tsx`.
 - **pnpm**: solo ejecuta los scripts de instalación de los paquetes listados en `allowBuilds` de
   `pnpm-workspace.yaml`. No se configura en el campo `pnpm` de `package.json`: pnpm 11 ya no lo lee.
+  `minimumReleaseAge` retrasa 7 días la adopción de versiones recién publicadas; para un parche de
+  seguridad urgente, `--config.minimumReleaseAge=0` en ese comando. Antes de subir, `pnpm audit --prod`.
+- **`.next/` guarda una copia de las claves**: la caché de Turbopack (`.next/cache`, `.next/dev/cache`)
+  lleva en claro el valor de las variables de entorno con las que se arrancó (`SUPABASE_SECRET_KEY`,
+  `OPENROUTER_API_KEY`, `DATABASE_URL`), también las de producción si alguna vez se arrancó contra
+  ella. Git la ignora, pero un zip de la carpeta no: antes de comprimir, copiar o compartir el
+  proyecto se borran `.next/`, `respaldos/` y los `.env*.local`, y `.next/` se borra también después
+  de rotar una clave. Al navegador no llega (`.next/static` no las contiene).
+- **Una rama subida es una web con las claves de producción**: mientras en Vercel las variables
+  estén marcadas también para «Preview», cualquier rama que llegue a GitHub despliega una vista
+  previa que lee y escribe en la base de producción. Por eso todo va en `main`, y una rama de
+  trabajo (como `auditoria-seguridad`) se fusiona en local y no se sube.
+- **La conexión con la base va cifrada porque lo pide el código** (`src/db/cifrado.ts`): postgres.js
+  no cifra por defecto y el pooler de Supabase acepta conexiones sin cifrar. Un script nuevo que
+  abra su propia conexión con `postgres()` lleva `...cifrado(url)` en las opciones.
+- **Las rutas con `[id]` aceptan cualquier texto**: `Number(id)` puede ser `NaN`, un decimal o un
+  número que no cabe en un `integer`, y Postgres lo rechaza con un error. Las consultas `obtener*`
+  devuelven `null` si `!esIdValido(id)` (`src/lib/utils.ts`); una consulta nueva por id hace lo
+  mismo, y un id de la URL se filtra con `ES_ID` (`src/lib/filtros.ts`). Por lo mismo, el `matcher`
+  de `src/proxy.ts` no excluye rutas por su extensión: `/avisos/1.png` es una ruta de página.
