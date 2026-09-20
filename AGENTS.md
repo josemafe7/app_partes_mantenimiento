@@ -78,7 +78,8 @@ pnpm usuarios:admin <email> "<nombre>"   # crea un administrador con contraseña
   `--entorno=produccion` se cuela como si fuera el email o el nombre.
 - Los scripts que hablan con dos proyectos a la vez (`copiar-datos.ts`) no usan `bd` de
   `src/db/cliente`, que está atado a un solo `DATABASE_URL`: abren sus conexiones con `postgres()`.
-- `.env.produccion.local` no se versiona (`.gitignore` lleva `.env*.local`), y `respaldos/` tampoco.
+- `.env.produccion.local` no se versiona (`.gitignore` lleva `.env.*`, salvo `.env.example`), y
+  `respaldos/` tampoco.
 
 ### Cambiar el esquema
 
@@ -113,8 +114,10 @@ terminada hasta que está aplicada en los dos**, primero en desarrollo.
 
 Un `md5` de toda la estructura: columnas con su tipo y su valor por defecto, índices, restricciones,
 políticas, RLS y permisos. Si sale lo mismo en los dos proyectos, están iguales; si no, hay que
-mirar qué línea sobra o falta quitando el `md5`. El 20-09-2026, recién creado el de desarrollo:
-`33222d7a63e744eb0d32d63e0024e9c4`, 194 elementos.
+mirar qué línea sobra o falta quitando el `md5`. El 20-09-2026, con las 6 migraciones en los dos
+(hasta `…_lecturas_ia`): `0d9a3705f9444ece2198a5aa0cfbab1e`, 205 elementos. (Con las 4 primeras
+era `33222d7a63e744eb0d32d63e0024e9c4`, 194: la tabla `lecturas_ia` añade 12 líneas y el `revoke
+update` de `movimientos` quita una.)
 
 ```sql
 select md5(string_agg(linea, chr(10) order by linea)) as huella, count(*) as elementos from (
@@ -145,6 +148,16 @@ Lo que esta huella **no** ve, porque no está en las migraciones y hay que repet
 proyecto: la contraseña de `app_avisos` (`alter role app_avisos with login password '…'`), la
 configuración de Auth (registro público apagado, contraseñas de 12 caracteres con los cuatro tipos)
 y `SUPABASE_SECRET_KEY`, que es distinta en cada uno.
+
+Tampoco ve los **privilegios por defecto** (`…_privilegios_por_defecto.sql`), que sí están en las
+migraciones pero viven en otro catálogo. Se comprueban aparte, y en los dos proyectos tiene que
+salir lo mismo: para el rol `postgres`, ni rastro de `anon` ni de `authenticated` (los de
+`supabase_admin` no se pueden cambiar y siguen abiertos: es lo esperado).
+
+```sql
+select defaclrole::regrole as rol, defaclobjtype as tipo, defaclacl::text as permisos
+  from pg_default_acl where defaclnamespace = 'public'::regnamespace order by 1, 2;
+```
 
 ## Arquitectura
 
