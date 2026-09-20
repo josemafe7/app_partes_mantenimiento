@@ -26,6 +26,9 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  // Todo menos los archivos estáticos de Next y las imágenes.
-  matcher: ['/((?!_next/static|_next/image|favicon.ico|.*\\.(?:svg|png|jpg|jpeg|gif|webp|ico)$).*)'],
+  // Todo menos los archivos estáticos de Next. No se excluye por extensión: las
+  // rutas con [id] aceptan cualquier texto, y `/avisos/1.png` llegaba a la página
+  // sin pasar por aquí (sin CSP). La aplicación no sirve imágenes propias; si un
+  // día las tiene, se excluye su carpeta, no una extensión.
+  matcher: ['/((?!_next/static|_next/image|favicon.ico).*)'],
 }
