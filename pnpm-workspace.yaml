@@ -7,3 +7,11 @@ allowBuilds:
   esbuild: true
   sharp: true
   unrs-resolver: true
+
+# Al añadir o actualizar paquetes, pnpm no coge versiones publicadas hace menos
+# de 7 días (en minutos): las versiones envenenadas de un paquete legítimo suelen
+# retirarse en horas. No cambia nada de lo instalado ni toca el lockfile, y no
+# afecta a Vercel (instala lo que fija pnpm-lock.yaml).
+# Para un parche de seguridad urgente (de next, por ejemplo), solo en ese comando:
+#   pnpm update next --config.minimumReleaseAge=0
+minimumReleaseAge: 10080
