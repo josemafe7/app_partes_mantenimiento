@@ -195,6 +195,16 @@ describe('sesión', () => {
     assert.equal(rutaDeVuelta('/login'), '/')
     assert.equal(rutaDeVuelta(undefined), '/')
   })
+
+  it('ni a una ruta con caracteres de control (saltos de línea, tabuladores, NUL)', () => {
+    // Un navegador los quita al seguir el enlace: «/\t/otra-web.com» acabaría en «//otra-web.com».
+    for (const codigo of [0x00, 0x09, 0x0a, 0x0d, 0x1f]) {
+      const ruta = `/${String.fromCharCode(codigo)}/otra-web.com`
+      assert.equal(rutaDeVuelta(ruta), '/', `código ${codigo}`)
+    }
+    // El espacio (0x20) ya no es de control: una búsqueda con espacios sí vuelve.
+    assert.equal(rutaDeVuelta('/avisos?q=aire acondicionado'), '/avisos?q=aire acondicionado')
+  })
 })
 
 describe('validación de usuarios', () => {
